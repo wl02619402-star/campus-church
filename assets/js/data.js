@@ -150,6 +150,17 @@
         .sort((a, b) => (b.time || 0) - (a.time || 0))
         .slice(0, C.prayerWallLimit || 30);
     },
+    /* 代禱人數：可以直接用「代禱回應」表單的回覆表（一列一次），也可以是已經統計好的表（有「人數」欄） */
+    prayed(rows) {
+      const counts = new Map();
+      rows.forEach((r) => {
+        const id = pick(r, ["代禱編號", "編號"]);
+        if (!id) return;
+        const n = Number(pick(r, ["人數", "次數"])) || 1;
+        counts.set(id, (counts.get(id) || 0) + n);
+      });
+      return Array.from(counts, ([id, count]) => ({ id, count }));
+    },
   };
 
   async function load(key) {

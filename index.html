@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Iansui&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
-  <link rel="stylesheet" href="assets/css/style.css?v=poster5">
+  <link rel="stylesheet" href="assets/css/style.css?v=enter2">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -38,6 +38,8 @@
       <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
       <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
       <symbol id="i-external" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+      <symbol id="i-stamper" viewBox="0 0 120 170"><ellipse cx="60" cy="128" rx="53" ry="42" fill="#AE3A07"/><path d="M7 112v8c0 23 24 42 53 42s53-19 53-42v-8z" fill="#14110D"/><ellipse cx="60" cy="112" rx="53" ry="42" fill="#3A322A"/><ellipse cx="60" cy="112" rx="42" ry="33" fill="#14110D"/><path d="M30 112c10-16 20-30 20-56h20c0 26 10 40 20 56-8 12-52 12-60 0z" fill="#E98A3C"/><path d="M60 56h10c0 26 10 40 20 56-5 7-18 10-30 10z" fill="#C4621A"/><rect x="44" y="48" width="32" height="11" rx="3" fill="#14110D"/><circle cx="60" cy="29" r="27" fill="#E98A3C"/><path d="M60 2a27 27 0 0 1 0 54c9-8 14-17 14-27S69 10 60 2z" fill="#C4621A"/><ellipse cx="49" cy="19" rx="8" ry="5" fill="#FBF7EE" opacity=".55" transform="rotate(-28 49 19)"/></symbol>
+      <symbol id="i-plane" viewBox="0 0 120 80"><g stroke="#14110D" stroke-width="3" stroke-linejoin="round"><path d="M4 40 116 6 46 50z" fill="#FBF7EE"/><path d="M46 50 116 6 62 76z" fill="#DCD3C2"/><path d="M46 50 62 76 54 52z" fill="#B9AE9B"/></g></symbol>
     </defs>
   </svg>
 
@@ -110,44 +112,38 @@
 
     <!-- 新朋友 -->
     <section class="view" data-view="welcome" aria-labelledby="welcomeTitle" hidden>
-      <header class="page-head page-head--orange">
-        <div class="wrap">
-          <h1 class="page-title" id="welcomeTitle" tabindex="-1">第一次來？<br>歡迎你。</h1>
-          <p class="page-lead">不管你是好奇來看看，還是想找個小組，這裡都有你的位子。</p>
-        </div>
-      </header>
-      <div class="sheet-body">
-        <div class="wrap wrap--narrow stack">
-          <section aria-labelledby="stepOne">
-            <h2 class="step" id="stepOne"><span class="step__no">1</span>挑一場離你近的聚會</h2>
-            <div class="region-switch" data-region-switch></div>
-            <div id="welcomeMeeting" class="ticket"></div>
-          </section>
+      <div class="entry" id="entry" data-step="0">
+        <div class="wrap entry__grid">
+          <div class="entry__main">
+            <form class="entry__form" data-form="newcomer" novalidate>
+              <p class="entry__progress" id="entryProgress" aria-live="polite" hidden></p>
 
-          <section aria-labelledby="stepTwo">
-            <h2 class="step" id="stepTwo"><span class="step__no">2</span>留下你的名字</h2>
-            <form class="form card" data-form="newcomer" novalidate>
-              <div class="field">
-                <label for="nf-name">名字或暱稱 <em>必填</em></label>
-                <input id="nf-name" name="name" size="1" required autocomplete="nickname">
+              <div class="q" data-q="0">
+                <h1 class="page-title entry__title" id="welcomeTitle" tabindex="-1">第一次來？<br>歡迎你。</h1>
+                <p class="page-lead">不管你是好奇來看看，還是想找個小組，這裡都有你的位子。</p>
+              </div>
+
+              <div class="q field" data-q="1" hidden>
+                <label class="q__label" for="nf-name">你叫什麼名字？</label>
+                <input id="nf-name" name="name" size="1" required autocomplete="nickname" placeholder="名字或暱稱">
                 <p class="field__err" hidden></p>
               </div>
-              <div class="field">
-                <label for="nf-contact">電話或 LINE ID <em>必填</em></label>
-                <input id="nf-contact" name="contact" size="1" required>
+              <div class="q field" data-q="2" hidden>
+                <label class="q__label" for="nf-contact">我們要怎麼聯絡你？</label>
+                <input id="nf-contact" name="contact" size="1" required placeholder="電話或 LINE ID">
                 <p class="field__err" hidden></p>
               </div>
-              <div class="field">
-                <label for="nf-school">學校、科系與年級 <em>必填</em></label>
+              <div class="q field" data-q="3" hidden>
+                <label class="q__label" for="nf-school">你讀哪裡呢？</label>
                 <input id="nf-school" name="school" size="1" required placeholder="例如：臺大 社會系 大二">
                 <p class="field__err" hidden></p>
               </div>
-              <div class="field">
-                <label for="nf-by">誰邀請你來的？</label>
-                <input id="nf-by" name="invitedBy" size="1">
+              <div class="q field" data-q="4" hidden>
+                <label class="q__label" for="nf-by">誰邀請你來的？</label>
+                <input id="nf-by" name="invitedBy" size="1" placeholder="沒有的話可以跳過">
               </div>
-              <fieldset class="field">
-                <legend>你對基督信仰的認識</legend>
+              <fieldset class="q field" data-q="5" hidden>
+                <legend class="q__label">你對基督信仰的認識？</legend>
                 <div class="options">
                   <label class="option"><input type="radio" name="faith" value="第一次接觸，好奇來看看"><span>第一次接觸，好奇來看看</span></label>
                   <label class="option"><input type="radio" name="faith" value="以前去過教會，想找聚會小組"><span>以前去過教會，想找聚會小組</span></label>
@@ -155,22 +151,56 @@
                   <label class="option"><input type="radio" name="faith" value="其他"><span>其他</span></label>
                 </div>
               </fieldset>
-              <div class="field">
-                <label for="nf-prayer">有想讓我們為你禱告的事嗎？</label>
-                <textarea id="nf-prayer" name="prayer" rows="3"></textarea>
+              <div class="q field" data-q="6" hidden>
+                <label class="q__label" for="nf-prayer">有想讓我們為你禱告的事嗎？</label>
+                <textarea id="nf-prayer" name="prayer" rows="3" placeholder="沒有的話可以直接送出"></textarea>
               </div>
-              <button class="btn btn--primary btn--block" type="submit"><svg class="icon" aria-hidden="true"><use href="#i-gift"/></svg><span>送出，現場領小禮物</span></button>
-              <p class="form__note">資料只給同工聯絡你時使用。</p>
+
+              <div class="entry__nav">
+                <button class="btn btn--quiet" type="button" id="entryBack" hidden>上一題</button>
+                <button class="btn btn--ink" type="button" id="entryNext"><span id="entryNextText">寫下我的名牌</span><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+                <button class="btn btn--ink" type="submit" id="entrySubmit" hidden><svg class="icon" aria-hidden="true"><use href="#i-gift"/></svg><span>送出，領小禮物</span></button>
+              </div>
+              <p class="entry__note">資料只給同工聯絡你時使用。</p>
               <p class="form__err" role="alert" hidden></p>
             </form>
-            <div class="success card" data-success="newcomer" tabindex="-1" hidden>
-              <span class="success__icon"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
-              <h3>收到了，歡迎你！</h3>
-              <p>聚會當天到現場找同工，領你的迎新小禮物。</p>
+
+            <div class="entry__done success" data-success="newcomer" tabindex="-1" hidden>
+              <h3>很高興認識你！</h3>
+              <p>找招待同工，領你的迎新小禮物吧。</p>
               <p class="success__demo" hidden>示範模式：這份資料沒有真的送出。</p>
-              <button class="btn btn--quiet" type="button" data-reset="newcomer">再填一份</button>
+              <div class="entry__links">
+                <a class="text-link" id="entryCal" target="_blank" rel="noopener">把下一場加到行事曆</a>
+                <a class="text-link" id="entryMap" target="_blank" rel="noopener">看地圖</a>
+                <button class="text-link" type="button" data-reset="newcomer">再填一份</button>
+              </div>
             </div>
-          </section>
+          </div>
+
+          <div class="entry__badge" id="entryBadge">
+            <article class="tag" id="tag" aria-label="你的名牌預覽">
+              <header class="tag__top"><strong>嗨！我是</strong><span>第一次來</span></header>
+              <div class="tag__body">
+                <p class="tag__name is-empty" id="tagName">你的名字</p>
+                <p class="tag__meta" id="tagMeta"></p>
+              </div>
+              <footer class="tag__foot"><span>校園教會</span><span>Friday Night × Sunday Reset</span></footer>
+              <span class="tag__ink" aria-hidden="true">收到了</span>
+            </article>
+          </div>
+
+          <!-- 還沒到現場的人，看下一場聚會 -->
+          <div class="entry__next">
+            <p class="entry__pick">還沒到現場？看看下一場</p>
+            <div class="region-switch" data-region-switch></div>
+            <p class="entry__when"><b id="nextDate">--</b><span id="nextDow"></span><span id="nextTime"></span><span class="entry__venue" id="nextVenue"></span></p>
+          </div>
+        </div>
+
+        <!-- 送出後：你的學校跳進校名跑馬燈 -->
+        <div class="entry__tape" id="entryTape" hidden>
+          <p class="entry__tape-note">你的學校也在上面了！</p>
+          <div class="tape tape--mini" aria-hidden="true"><span class="tape__track" id="entryTapeTrack"></span></div>
         </div>
       </div>
     </section>
@@ -343,8 +373,8 @@
 
   <noscript><p class="noscript">這個網站需要開啟 JavaScript 才能顯示聚會資料。</p></noscript>
 
-  <script src="config.js"></script>
-  <script src="assets/js/data.js"></script>
-  <script src="assets/js/app.js?v=poster5"></script>
+  <script src="config.js?v=enter2"></script>
+  <script src="assets/js/data.js?v=enter2"></script>
+  <script src="assets/js/app.js?v=enter2"></script>
 </body>
 </html>

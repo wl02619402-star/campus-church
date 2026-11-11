@@ -19,6 +19,9 @@
     schoolCategory: "全部",
     schoolQuery: "",
     storyIndex: 0,
+    mySchool: "",
+    prayedCounts: new Map(),
+    justPrayed: new Set(),
   };
 
   /* ---------- DOM 小工具（全部用 textContent，試算表內容不會被當成程式執行） ---------- */
@@ -240,24 +243,21 @@
     });
   }
 
-  function renderTicket() {
-    const box = $("#welcomeMeeting");
-    box.textContent = "";
-    if (state.meetingsFailed) { box.append(retryBlock()); return; }
+  /* 新朋友頁：還沒到現場的人看下一場資訊 */
+  function renderEntryNext() {
     const { next } = meetingsFor(state.region);
-    if (!next) {
-      box.append(el("p", { class: "ticket__none" }, `${state.region}下一場時間確認中`));
-      return;
+    const p = next ? dateParts(next.start) : null;
+    $("#nextDate").textContent = p ? p.md : "確認中";
+    $("#nextDow").textContent = p ? p.dow : "";
+    $("#nextTime").textContent = p ? p.time : "";
+    $("#nextVenue").textContent = next ? next.venue
+      : state.meetingsFailed ? "暫時讀不到聚會資料" : "";
+    $("#entryCal").hidden = !next;
+    $("#entryMap").hidden = !next;
+    if (next) {
+      $("#entryCal").href = calendarURL(next);
+      $("#entryMap").href = mapURL(next);
     }
-    const p = dateParts(next.start);
-    box.append(
-      el("div", { class: "ticket__date" }, el("strong", {}, p.md), el("span", {}, p.dow)),
-      el("div", { class: "ticket__info" },
-        el("strong", {}, `${p.time} 開始`),
-        el("span", {}, next.venue),
-        el("span", { class: "ticket__links" },
-          el("a", { href: mapURL(next), target: "_blank", rel: "noopener" }, icon("pin"), "看地圖"),
-          el("a", { href: calendarURL(next), target: "_blank", rel: "noopener" }, icon("cal"), "加到行事曆"))));
   }
 
   function renderMeetings(animate) {
@@ -265,7 +265,7 @@
     if (!animate) renderHero();
     renderRegionSwitches();
     renderLater();
-    renderTicket();
+    renderEntryNext();
     tick();
   }
 
@@ -342,6 +342,7 @@
 
   /* 校名膠帶：平常慢慢跑，往下捲時跟著加速 */
   let tapeStarted = false;
+  let tapeMeasure = () => {};
 
   function runTape(track) {
     if (tapeStarted || calm()) return;
@@ -349,6 +350,7 @@
     const tape = $("#tape");
     let copy = track.scrollWidth / 2;
     const measure = () => { copy = track.scrollWidth / 2; };
+    tapeMeasure = measure;
     window.addEventListener("resize", measure);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
     let hovering = false;
@@ -381,9 +383,12 @@
     const line = `${names.join("　/　")}　/　`;
     const track = $("#tapeTrack");
     track.textContent = "";
-    track.append(el("span", {}, line), el("span", {}, line));
+    const copy = () => el("span", {},
+      state.mySchool ? [el("b", { class: "tape__mine" }, state.mySchool), "　/　"] : null, line);
+    track.append(copy(), copy());
     $("#tape").setAttribute("aria-label", `查看 ${names.length} 所參與校園`);
     runTape(track);
+    tapeMeasure();
   }
 
   /* 手畫底線 */
@@ -500,13 +505,136 @@
   }
 
   /* ---------- 代禱牆 ---------- */
+  /* 「我為這件事禱告」只記在這台裝置，不會上傳，也不顯示人數 */
+  const PRAYED_KEY = "campus-church-prayed";
+  const prayerId = (p) => `${p.name}|${(p.prayer || p.thanks || "").slice(0, 40)}`;
+
+  function prayedIds() {
+    try { return JSON.parse(storage.get(PRAYED_KEY)) || []; } catch (e) { return []; }
+  }
+
+  function markPrayed(id, card) {
+    storage.set(PRAYED_KEY, JSON.stringify(prayedIds().concat(id).slice(-200)));
+    state.justPrayed.add(id);
+    $(".pray", card).disabled = true;
+    /* 送到「代禱回應」表單，統計後大家都看得到人數；示範模式不會送出 */
+    D.submit("prayed", { id }).catch((err) => console.error("[校園教會] 代禱回應送出失敗", err));
+    if (calm() || !card.animate) { paintPrayed(card); paintCount(card, true); return; }
+    stampCard(card);
+  }
+
+  /* 只要有人按過（試算表裡有紀錄，或自己剛剛按的），就告訴寫的人「有人為這件事禱告了」，不顯示人數 */
+  function paintCount(card, bump) {
+    const id = card.dataset.id;
+    const n = (state.prayedCounts.get(id) || 0) + (state.justPrayed.has(id) ? 1 : 0);
+    const line = $(".prayer__count", card);
+    line.hidden = n === 0;
+    if (bump) {
+      line.classList.remove("is-up");
+      void line.offsetWidth;
+      line.classList.add("is-up");
+    }
+  }
+
+  function applyPrayedCounts(list) {
+    state.prayedCounts = new Map(list.map((x) => [x.id, x.count]));
+    $$(".prayer").forEach((card) => paintCount(card, false));
+  }
+
+  /* 拿起印章、對準、舉高、重重蓋下、左右壓一壓，抬走後才露出還沒乾的墨跡 */
+  const STAMP_MS = 1600;
+  const STAMP_HIT = 0.46;
+  const STAMP_LIFT = 0.72;
+
+  function stampBurst() {
+    const burst = svgNode("svg", { class: "stamp-rig__burst", viewBox: "-84 -84 168 168" });
+    for (let i = 0; i < 10; i += 1) {
+      const a = (i / 10) * Math.PI * 2 + 0.3;
+      burst.append(svgNode("line", {
+        x1: (Math.cos(a) * 58).toFixed(1), y1: (Math.sin(a) * 52).toFixed(1),
+        x2: (Math.cos(a) * 78).toFixed(1), y2: (Math.sin(a) * 72).toFixed(1),
+      }));
+    }
+    return burst;
+  }
+
+  function stampCard(card) {
+    const stamper = svgNode("svg", { class: "stamper", viewBox: "0 0 120 170" });
+    stamper.append(svgNode("use", { href: "#i-stamper" }));
+    const shadow = el("i", { class: "stamp-rig__shadow" });
+    const burst = stampBurst();
+    const rig = el("div", { class: "stamp-rig", "aria-hidden": "true" }, shadow, burst, stamper);
+    card.append(rig);
+    card.classList.add("is-stamping");
+    const timing = { duration: STAMP_MS };
+    stamper.animate([
+      { offset: 0, opacity: 0, transform: "translate(96px, -200px) rotate(28deg) scale(1.1)", easing: "cubic-bezier(.2,.8,.3,1)" },
+      { offset: 0.14, opacity: 1, transform: "translate(30px, -132px) rotate(12deg) scale(1.04)", easing: "ease-in-out" },
+      { offset: 0.26, opacity: 1, transform: "translate(0, -104px) rotate(-6deg)", easing: "cubic-bezier(.3,0,.3,1)" },
+      { offset: 0.38, opacity: 1, transform: "translate(0, -146px) rotate(-12deg) scale(1.05)", easing: "cubic-bezier(.75,0,1,.7)" },
+      { offset: STAMP_HIT, opacity: 1, transform: "none", easing: "ease-out" },
+      { offset: 0.49, opacity: 1, transform: "scale(1.07, .92)", easing: "ease-in-out" },
+      { offset: 0.56, opacity: 1, transform: "rotate(4deg) scale(1.01, .96)", easing: "ease-in-out" },
+      { offset: 0.63, opacity: 1, transform: "rotate(-4deg) scale(1.01, .96)", easing: "ease-in-out" },
+      { offset: 0.7, opacity: 1, transform: "scale(1, .97)", easing: "cubic-bezier(.5,0,.2,1)" },
+      { offset: 0.82, opacity: 1, transform: "translate(8px, -64px) rotate(-8deg)", easing: "cubic-bezier(.6,0,.9,.5)" },
+      { offset: 1, opacity: 0, transform: "translate(90px, -230px) rotate(26deg) scale(1.1)" },
+    ], timing).onfinish = () => {
+      rig.remove();
+      card.classList.remove("is-stamping");
+    };
+    shadow.animate([
+      { offset: 0, opacity: 0, transform: "scale(1.6)" },
+      { offset: 0.26, opacity: 0.32, transform: "scale(1.3)" },
+      { offset: 0.38, opacity: 0.16, transform: "scale(1.6)", easing: "cubic-bezier(.75,0,1,.7)" },
+      { offset: STAMP_HIT, opacity: 0.85, transform: "scale(1)" },
+      { offset: 0.7, opacity: 0.85, transform: "scale(1)" },
+      { offset: 0.82, opacity: 0.32, transform: "scale(1.25)" },
+      { offset: 1, opacity: 0, transform: "scale(1.6)" },
+    ], timing);
+    burst.animate(
+      [{ transform: "scale(.72)", opacity: 0 }, { transform: "scale(.9)", opacity: 1, offset: 0.18 }, { transform: "scale(1.4)", opacity: 0 }],
+      { duration: 420, delay: STAMP_MS * STAMP_HIT, easing: "cubic-bezier(.2,.8,.3,1)", fill: "both" });
+    setTimeout(() => {
+      const base = getComputedStyle(card).transform;
+      card.animate([
+        { transform: base },
+        { transform: `${base} translateY(10px) rotate(-1.3deg) scale(.975)` },
+        { transform: `${base} translateY(-3px) rotate(.6deg)` },
+        { transform: base },
+      ], { duration: 420, easing: "cubic-bezier(.2,.9,.3,1)" });
+      if (navigator.vibrate) navigator.vibrate(25);
+    }, STAMP_MS * STAMP_HIT);
+    setTimeout(() => {
+      paintPrayed(card);
+      paintCount(card, true);
+      $(".prayer__stamp", card).classList.add("is-wet");
+    }, STAMP_MS * STAMP_LIFT);
+  }
+
+  /* 蓋了章就不能取消 */
+  function paintPrayed(card) {
+    card.classList.add("is-prayed");
+    const button = $(".pray", card);
+    button.disabled = true;
+    $(".pray__text", button).textContent = "已經禱告了";
+  }
+
   function prayerCard(p) {
-    return el("article", { class: "prayer" },
+    const id = prayerId(p);
+    const card = el("article", { class: "prayer", "data-id": id },
       el("header", { class: "prayer__head" },
         el("span", { class: "prayer__who" }, el("strong", {}, p.name), p.partners ? el("span", {}, `和 ${p.partners}`) : null),
         el("time", { class: "prayer__time" }, ago(p.time))),
       p.prayer ? el("div", { class: "prayer__block" }, el("h3", {}, "代禱"), el("p", {}, p.prayer)) : null,
-      p.thanks ? el("div", { class: "prayer__block" }, el("h3", {}, "感恩"), el("p", {}, p.thanks)) : null);
+      p.thanks ? el("div", { class: "prayer__block" }, el("h3", {}, "感恩"), el("p", {}, p.thanks)) : null,
+      el("p", { class: "prayer__count", hidden: true }, icon("heart"), "有人為這件事禱告了"),
+      el("button", { class: "pray", type: "button", onclick: () => markPrayed(id, card) },
+        icon("heart"), el("span", { class: "pray__text" }, "我為這件事禱告")),
+      el("span", { class: "prayer__stamp", "aria-hidden": "true" }, "禱告了"));
+    if (prayedIds().includes(id)) paintPrayed(card);
+    paintCount(card, false);
+    return card;
   }
 
   function renderPrayers(list) {
@@ -515,6 +643,219 @@
     if (!list.length) { wall.append(el("p", { class: "empty" }, "這週還沒有人寫代禱，你可以當第一個。")); return; }
     list.forEach((p) => wall.append(prayerCard(p)));
     observeReveal($$(".prayer", wall));
+  }
+
+  /* ---------- 新朋友：一題一題填，名字即時寫到名牌上 ---------- */
+  const ENTRY_LAST = 6;
+  let entryStep = 0;
+
+  function showEntryStep(n, focus) {
+    entryStep = n;
+    const entry = $("#entry");
+    entry.dataset.step = String(n);
+    $$(".q", entry).forEach((q) => { q.hidden = Number(q.dataset.q) !== n; });
+    const progress = $("#entryProgress");
+    progress.hidden = n === 0;
+    progress.textContent = n ? `第 ${n} 題，共 ${ENTRY_LAST} 題` : "";
+    $("#entryBack").hidden = n === 0;
+    $("#entryNext").hidden = n === ENTRY_LAST;
+    $("#entrySubmit").hidden = n !== ENTRY_LAST;
+    $("#entryNextText").textContent = n === 0 ? "寫下我的名牌" : "下一題";
+    /* 第一頁時名牌本身就是按鈕 */
+    const tag = $("#tag");
+    const isButton = n === 0 && !entry.classList.contains("is-done");
+    if (isButton) {
+      tag.setAttribute("role", "button");
+      tag.setAttribute("tabindex", "0");
+      tag.setAttribute("aria-label", "寫下我的名牌");
+    } else {
+      tag.removeAttribute("role");
+      tag.removeAttribute("tabindex");
+      tag.setAttribute("aria-label", "你的名牌預覽");
+    }
+    if (!$("#nf-name").value.trim()) printName("");
+    if (!focus) return;
+    window.scrollTo({ top: 0, behavior: calm() ? "auto" : "smooth" });
+    /* 要在點擊當下 focus，手機鍵盤才會跳出來 */
+    const input = $('.q:not([hidden]) input[size], .q:not([hidden]) textarea', entry);
+    if (input) input.focus({ preventScroll: true });
+  }
+
+  function entryNext() {
+    const current = $(`.q[data-q="${entryStep}"]`);
+    if (!validate(current)) return;
+    showEntryStep(Math.min(entryStep + 1, ENTRY_LAST), true);
+  }
+
+  function printName(value) {
+    const name = $("#tagName");
+    const text = value.trim();
+    name.textContent = text || (entryStep === 0 ? "點我寫名字" : "你的名字");
+    name.classList.toggle("is-empty", !text);
+    /* 名字越長字越小，才寫得進名牌 */
+    name.style.setProperty("--fit", text ? String(Math.max(0.4, Math.min(1, 5 / Array.from(text).length))) : "0.72");
+    if (text && !calm() && name.animate) {
+      name.animate([{ transform: "translateY(6px) rotate(-3deg)", opacity: 0.4 }, { transform: "none", opacity: 1 }], { duration: 200 });
+    }
+  }
+
+  function printMeta(form) {
+    const school = form.school.value.trim();
+    const by = form.invitedBy.value.trim();
+    $("#tagMeta").textContent = [school, by ? `${by} 邀請我來` : ""].filter(Boolean).join("　");
+  }
+
+  /* 送出後：名牌折成紙飛機寄給同工 → 另一架紙飛機飛回來、打開變回名牌 → 蓋上「收到了」 → 學校跳進跑馬燈 */
+  const MY_SCHOOL_KEY = "campus-church-my-school";
+  const PLANE_OUT_AT = 280;
+  const PLANE_OUT_MS = 1050;
+  const PLANE_BACK_AT = 1550;
+  const PLANE_BACK_MS = 1150;
+  const UNFOLD_AT = PLANE_BACK_AT + PLANE_BACK_MS;
+  const INK_AT = UNFOLD_AT + 420;
+  const TAPE_AT = INK_AT + 280;
+
+  function paperPlane() {
+    const plane = svgNode("svg", { class: "plane", viewBox: "0 0 120 80", "aria-hidden": "true" });
+    plane.append(svgNode("use", { href: "#i-plane" }));
+    return plane;
+  }
+
+  const at = (x, y, rest) => `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) ${rest}`;
+
+  function flyPlanes(entry) {
+    const tag = $("#tag");
+    const badge = $("#entryBadge");
+    const dx = window.innerWidth;
+    const dy = window.innerHeight;
+    const fold = tag.animate(
+      [{ transform: "rotate(-2deg)", opacity: 1 }, { transform: "rotate(-8deg) rotateX(75deg) scale(.6)", opacity: 0 }],
+      { duration: 450, easing: "cubic-bezier(.5,0,.9,.6)", fill: "forwards" });
+
+    const out = paperPlane();
+    badge.append(out);
+    out.animate([
+      { offset: 0, opacity: 0, transform: at(0, 0, "rotate(-6deg) scale(.3)") },
+      { offset: 0.18, opacity: 1, transform: at(0, 0, "rotate(-10deg) scale(1)"), easing: "ease-out" },
+      { offset: 0.38, opacity: 1, transform: at(-44, 20, "rotate(-2deg)"), easing: "cubic-bezier(.55,0,.9,.6)" },
+      { offset: 1, opacity: 1, transform: at(dx, -dy * 0.8, "rotate(-26deg) scale(.6)") },
+    ], { duration: PLANE_OUT_MS, delay: PLANE_OUT_AT, fill: "both" }).onfinish = () => out.remove();
+
+    const back = paperPlane();
+    badge.append(back);
+    const landing = back.animate([
+      { offset: 0, opacity: 1, transform: at(-dx, -dy * 0.5, "rotate(20deg) scale(.7)"), easing: "cubic-bezier(.3,.6,.4,1)" },
+      { offset: 0.6, opacity: 1, transform: at(40, 34, "rotate(12deg) scale(1)"), easing: "ease-in-out" },
+      { offset: 0.84, opacity: 1, transform: at(-12, -8, "rotate(-8deg) scale(1)"), easing: "ease-out" },
+      { offset: 1, opacity: 1, transform: at(0, 0, "rotate(0) scale(1)") },
+    ], { duration: PLANE_BACK_MS, delay: PLANE_BACK_AT, fill: "both" });
+
+    landing.onfinish = () => {
+      back.animate([{ transform: at(0, 0, "scale(1)"), opacity: 1 }, { transform: at(0, 0, "scale(1.4) rotate(-10deg)"), opacity: 0 }],
+        { duration: 260, fill: "forwards" }).onfinish = () => back.remove();
+      fold.cancel();
+      tag.animate(
+        [{ transform: "rotate(8deg) rotateX(70deg) scale(.6)", opacity: 0 }, { transform: "rotate(-2deg)", opacity: 1 }],
+        { duration: 480, easing: "cubic-bezier(.2,1.3,.4,1)" });
+    };
+    setTimeout(() => {
+      entry.classList.add("is-received");
+      const base = getComputedStyle(tag).transform;
+      tag.animate([{ transform: base }, { transform: `${base} translateY(8px) scale(.97)` }, { transform: base }],
+        { duration: 360, easing: "cubic-bezier(.2,.9,.3,1)" });
+    }, INK_AT);
+    setTimeout(showEntryTape, TAPE_AT);
+  }
+
+  /* 你的學校加入校名跑馬燈：送出那一刻在這頁出現，首頁的膠帶也會多一個你的學校（只存在這支手機） */
+  function rememberSchool(form) {
+    const school = form.school.value.trim().split(/\s+/)[0] || "";
+    state.mySchool = school;
+    storage.set(MY_SCHOOL_KEY, school);
+    if (state.schools.length) renderTape();
+  }
+
+  function showEntryTape() {
+    const names = state.schools.map((s) => s.name);
+    if (!state.mySchool || !names.length) return;
+    const track = $("#entryTapeTrack");
+    track.textContent = "";
+    /* 每隔幾所學校就插一次你的學校，跑馬燈任何時候都看得到 */
+    const half = () => el("span", {}, names.flatMap((name, i) => (i % 6 === 0
+      ? [el("b", { class: "tape__mine" }, state.mySchool), `　/　${name}　/　`]
+      : [`${name}　/　`])));
+    track.append(half(), half());
+    $("#entryTape").hidden = false;
+  }
+
+  function celebrateEntry() {
+    const entry = $("#entry");
+    rememberSchool($('[data-form="newcomer"]'));
+    entry.classList.add("is-done");
+    window.scrollTo({ top: 0, behavior: calm() ? "auto" : "smooth" });
+    if (calm() || !entry.animate) {
+      entry.classList.add("is-received");
+      showEntryTape();
+      return;
+    }
+    flyPlanes(entry);
+    const colors = [...C.regions.map((r) => r.color), "#FF5500", "#FBF7EE", "#14110D"];
+    for (let i = 0; i < 34; i += 1) {
+      const paper = el("i", { class: "paper", "aria-hidden": "true", style: `left:${Math.random() * 100}%;background:${colors[i % colors.length]}` });
+      entry.append(paper);
+      const drift = (Math.random() - 0.5) * 160;
+      paper.animate(
+        [{ transform: "translateY(-40px) rotate(0)" }, { transform: `translate(${drift}px, ${entry.offsetHeight + 80}px) rotate(${(Math.random() - 0.5) * 900}deg)` }],
+        { duration: 1500 + Math.random() * 1100, delay: INK_AT + Math.random() * 350, easing: "cubic-bezier(.3,.2,.6,1)", fill: "both" }).onfinish = () => paper.remove();
+    }
+  }
+
+  function resetEntry() {
+    $("#entry").classList.remove("is-done", "is-received");
+    $$("#entryBadge .plane").forEach((plane) => plane.remove());
+    $("#tag").getAnimations().forEach((a) => a.cancel());
+    $("#entryTape").hidden = true;
+    printName("");
+    $("#tagMeta").textContent = "";
+    showEntryStep(0, false);
+  }
+
+  function setupEntry() {
+    const form = $('[data-form="newcomer"]');
+    const entry = $("#entry");
+    $("#entryNext").addEventListener("click", entryNext);
+    $("#entryBack").addEventListener("click", () => showEntryStep(Math.max(entryStep - 1, 0), true));
+    /* 按 Enter 到下一題；中文輸入法選字時按的 Enter 不算，選完字再按一次才前進 */
+    form.addEventListener("keydown", (e) => {
+      if (e.isComposing || e.keyCode === 229) return;
+      if (e.key === "Enter" && e.target.matches("input")) { e.preventDefault(); entryNext(); }
+    });
+    form.name.addEventListener("input", (e) => printName(e.target.value));
+    form.school.addEventListener("input", () => printMeta(form));
+    form.invitedBy.addEventListener("input", () => printMeta(form));
+    /* 滑鼠或手指選了就自動下一題；用鍵盤方向鍵切換時不跳走 */
+    $$('input[name="faith"]', form).forEach((radio) => radio.addEventListener("click", (e) => {
+      if (e.detail > 0) setTimeout(() => { if (entryStep === 5) showEntryStep(6, true); }, 260);
+    }));
+
+    /* 點名牌也能開始填 */
+    const tag = $("#tag");
+    const startFromTag = () => { if (tag.getAttribute("role") === "button") entryNext(); };
+    tag.addEventListener("click", startFromTag);
+    tag.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startFromTag(); }
+    });
+
+    /* 電腦版：名牌跟著滑鼠微微傾斜 */
+    if (!calm() && window.matchMedia("(hover: hover) and (min-width: 960px)").matches) {
+      entry.addEventListener("pointermove", (e) => {
+        const r = entry.getBoundingClientRect();
+        tag.style.setProperty("--ry", `${((e.clientX - r.left) / r.width - 0.5) * 16}deg`);
+        tag.style.setProperty("--rx", `${((e.clientY - r.top) / r.height - 0.5) * -12}deg`);
+      });
+      entry.addEventListener("pointerleave", () => { tag.style.setProperty("--ry", "0deg"); tag.style.setProperty("--rx", "0deg"); });
+    }
+    showEntryStep(0, false);
   }
 
   /* ---------- 對話框 ---------- */
@@ -611,6 +952,7 @@
     form.reset();
     form.hidden = false;
     success.hidden = true;
+    if (key === "newcomer") resetEntry();
   }
 
   function setupForms() {
@@ -636,6 +978,7 @@
           success.hidden = false;
           success.focus();
           if (key === "sharing") prependPrayer(values);
+          if (key === "newcomer") celebrateEntry();
         } catch (err) {
           console.error("[校園教會] 表單送出失敗", err);
           failure.textContent = "送出失敗了，請檢查網路後再試一次，你填的內容都還在。";
@@ -697,6 +1040,7 @@
   function init() {
     const saved = storage.get(REGION_KEY);
     if (saved && C.regions.some((r) => r.name === saved)) state.region = saved;
+    state.mySchool = storage.get(MY_SCHOOL_KEY) || "";
 
     $("#photosLink").href = C.links.photos;
     $("#demoNote").hidden = !D.usingSampleData();
@@ -705,6 +1049,7 @@
 
     setupDialogs();
     setupForms();
+    setupEntry();
     window.addEventListener("hashchange", () => { route(); fitDates(); });
     window.addEventListener("resize", fitDates);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitDates);
@@ -718,6 +1063,8 @@
     loadInto("stats", renderStats);
     loadInto("schools", (list) => { state.schools = list; renderSchoolFilter(); renderSchools(); renderTape(); });
     loadInto("stories", (list) => { state.stories = list; renderStories(); });
+    /* 讀不到人數統計時不影響代禱牆，只是不顯示人數 */
+    loadInto("prayed", applyPrayedCounts, () => {});
     loadInto("prayers", renderPrayers, () => {
       const wall = $("#prayerWall");
       wall.textContent = "";

@@ -16,6 +16,7 @@ window.SITE_CONFIG = {
     schools:  "data/schools.csv",  // 參與校園：學校、類別
     stories:  "data/stories.csv",  // 48 小時感動牆：學校、照片、時間、公開
     prayers:  "data/prayers.csv",  // 代禱牆：時間、姓名、夥伴、代禱、感恩、公開
+    prayed:   "data/prayed.csv",   // 代禱人數：代禱編號（可直接用「代禱回應」表單的回覆表）
   },
 
   /* ----------------------------------------------------------
@@ -50,6 +51,11 @@ window.SITE_CONFIG = {
       enabled: false,
       action: "",
       fields: { reporter: "", target: "" },
+    },
+    prayed: { // 代禱回應：有人按「我為這件事禱告」時送出，只有一題「代禱編號」，不含個人資料
+      enabled: false,
+      action: "",
+      fields: { id: "" },
     },
   },
 
