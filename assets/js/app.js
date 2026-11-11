@@ -97,12 +97,12 @@
     return `https://calendar.google.com/calendar/render?${q.toString()}`;
   }
 
-  function countdownCells() {
-    return el("div", { class: "countdown", "data-countdown": true, role: "timer" },
-      [["d", "天"], ["h", "時"], ["m", "分"], ["s", "秒"]].map(([k, label]) =>
-        el("div", { class: "countdown__cell" },
-          el("span", { class: "countdown__num", "data-unit": k }, "--"),
-          el("span", { class: "countdown__label" }, label))));
+  function countdownSticker(region) {
+    const unit = (k) => el("span", { "data-unit": k }, "--");
+    return el("div", { class: "sticker", "data-countdown": true, "data-region": region, role: "timer" },
+      el("span", { class: "sticker__top" }, "還有"),
+      el("span", { class: "sticker__big" }, unit("d"), el("small", {}, "天")),
+      el("span", { class: "sticker__clock" }, unit("h"), ":", unit("m"), ":", unit("s")));
   }
 
   function renderRegionSwitches() {
@@ -120,39 +120,76 @@
       box.style.setProperty("--i", index);
       $$("button", box).forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.region === state.region)));
     });
+    syncPanels();
   }
 
-  function retryBlock(dark) {
-    return el("div", { class: `load-error${dark ? " load-error--dark" : ""}` },
+  function retryBlock() {
+    return el("div", { class: "load-error" },
       el("p", {}, "暫時讀不到聚會資料"),
       el("button", { class: "btn btn--quiet", type: "button", onclick: () => location.reload() }, "重新整理"));
   }
 
-  function renderHero(animate) {
-    const box = $("#heroMeeting");
-    box.textContent = "";
-    if (state.meetingsFailed) { box.append(retryBlock(true)); return; }
-    const { next } = meetingsFor(state.region);
+  /* 首頁主視覺：北中南三塊色塊，點哪一區就展開哪一區 */
+  function dateDigits(md) {
+    return el("p", { class: "panel__date" },
+      el("span", { class: "sr-only" }, md),
+      Array.from(md).map((ch, i) => el("span", { "aria-hidden": "true", style: `--i:${i}` }, ch)));
+  }
+
+  function panelContent(region, next) {
     if (!next) {
-      box.append(el("div", { class: "hero__none" },
-        el("p", { class: "hero__eyebrow" }, `${state.region}・下一場聚會`),
-        el("p", { class: "hero__none-text" }, "時間確認中"),
-        el("a", { class: "btn btn--primary", href: "#/welcome" }, "第一次來？", icon("arrow"))));
-      return;
+      return [
+        el("p", { class: "panel__note" }, "下一場聚會"),
+        el("p", { class: "panel__none" }, "時間確認中"),
+        el("div", { class: "panel__actions" },
+          el("a", { class: "btn btn--ink", href: "#/welcome" }, "第一次來？", icon("arrow"))),
+      ];
     }
     const p = dateParts(next.start);
-    box.append(
-      el("div", { class: `hero__swap${animate ? " is-changing" : ""}` },
-        el("p", { class: "hero__eyebrow" }, `${state.region}・下一場聚會`),
-        el("p", { class: "hero__date" },
-          el("span", { class: "hero__md" }, p.md),
-          el("span", { class: "hero__dow" }, el("span", {}, p.dow), el("span", {}, p.time))),
-        el("a", { class: "hero__venue", href: mapURL(next), target: "_blank", rel: "noopener" },
-          icon("pin"), el("span", {}, next.venue), el("span", { class: "sr-only" }, "（開啟地圖）")),
-        countdownCells(),
-        el("div", { class: "hero__actions" },
-          el("a", { class: "btn btn--primary", href: "#/welcome" }, "第一次來？", icon("arrow")),
-          el("a", { class: "btn btn--ghost", href: calendarURL(next), target: "_blank", rel: "noopener" }, icon("cal"), "加到行事曆"))));
+    return [
+      el("p", { class: "panel__note" }, "下一場聚會"),
+      dateDigits(p.md),
+      el("div", { class: "panel__foot" },
+        el("div", { class: "panel__info" },
+          el("p", { class: "panel__when" }, p.dow, el("b", {}, p.time)),
+          el("a", { class: "panel__venue", href: mapURL(next), target: "_blank", rel: "noopener" },
+            next.venue, el("span", { class: "sr-only" }, "（開啟地圖）"))),
+        el("div", { class: "panel__actions" },
+          el("a", { class: "btn btn--ink", href: "#/welcome" }, "第一次來？", icon("arrow")),
+          el("a", { class: "text-link", href: calendarURL(next), target: "_blank", rel: "noopener" }, "加到行事曆"))),
+      countdownSticker(region),
+    ];
+  }
+
+  function regionPanel(r) {
+    const { next } = meetingsFor(r.name);
+    const p = next ? dateParts(next.start) : null;
+    return el("section", { class: "panel", style: `--c:${r.color}`, "data-panel": r.name, "aria-label": `${r.name}聚會` },
+      el("button", { class: "panel__tab", type: "button", onclick: () => setRegion(r.name) },
+        el("span", { class: "panel__name" }, r.name),
+        el("span", { class: "panel__peek" }, p ? [p.md, el("small", {}, p.dow)] : el("small", {}, "確認中")),
+        el("span", { class: "panel__mark", "aria-hidden": "true" })),
+      el("div", { class: "panel__fold" },
+        el("div", { class: "panel__body" },
+          el("div", { class: "panel__inner" }, panelContent(r.name, next)))));
+  }
+
+  function renderHero() {
+    const box = $("#heroMeeting");
+    box.textContent = "";
+    if (state.meetingsFailed) { box.append(retryBlock()); return; }
+    box.style.setProperty("--n", C.regions.length);
+    C.regions.forEach((r) => box.append(regionPanel(r)));
+    syncPanels();
+  }
+
+  function syncPanels() {
+    $$(".panel").forEach((panel) => {
+      const open = panel.dataset.panel === state.region;
+      panel.classList.toggle("is-open", open);
+      $(".panel__tab", panel).setAttribute("aria-expanded", String(open));
+      $(".panel__fold", panel).inert = !open;
+    });
   }
 
   function renderLater() {
@@ -174,7 +211,7 @@
   function renderTicket() {
     const box = $("#welcomeMeeting");
     box.textContent = "";
-    if (state.meetingsFailed) { box.append(retryBlock(false)); return; }
+    if (state.meetingsFailed) { box.append(retryBlock()); return; }
     const { next } = meetingsFor(state.region);
     if (!next) {
       box.append(el("p", { class: "ticket__none" }, `${state.region}下一場時間確認中`));
@@ -192,8 +229,9 @@
   }
 
   function renderMeetings(animate) {
+    /* 切換地區只開合色塊，資料載入時才重畫，動畫才接得上 */
+    if (!animate) renderHero();
     renderRegionSwitches();
-    renderHero(animate);
     renderLater();
     renderTicket();
     tick();
@@ -206,21 +244,29 @@
   }
 
   function tick() {
-    const { next } = meetingsFor(state.region);
-    const box = $("[data-countdown]");
-    if (!box || !next) return;
-    const diff = next.start.getTime() - Date.now();
-    if (diff <= 0) {
-      box.replaceWith(el("p", { class: "live-now" }, "聚會進行中，快來找我們"));
-      return;
-    }
-    const d = Math.floor(diff / 864e5);
-    const h = Math.floor((diff % 864e5) / 36e5);
-    const m = Math.floor((diff % 36e5) / 6e4);
-    const s = Math.floor((diff % 6e4) / 1000);
-    const set = (u, v) => { const t = $(`[data-unit="${u}"]`, box); const txt = String(v).padStart(2, "0"); if (t.textContent !== txt) { const changed = t.textContent !== "--"; t.textContent = txt; if (changed) flipDigit(t); } };
-    set("d", d); set("h", h); set("m", m); set("s", s);
-    box.setAttribute("aria-label", `距離聚會還有 ${d} 天 ${h} 小時 ${m} 分`);
+    $$("[data-countdown]").forEach((box) => {
+      const { next } = meetingsFor(box.dataset.region);
+      if (!next) return;
+      const diff = next.start.getTime() - Date.now();
+      if (diff <= 0) {
+        box.replaceWith(el("p", { class: "sticker sticker--live" }, "聚會進行中"));
+        return;
+      }
+      const d = Math.floor(diff / 864e5);
+      const h = Math.floor((diff % 864e5) / 36e5);
+      const m = Math.floor((diff % 36e5) / 6e4);
+      const s = Math.floor((diff % 6e4) / 1000);
+      const set = (u, txt) => {
+        const t = $(`[data-unit="${u}"]`, box);
+        if (t.textContent === txt) return;
+        const changed = t.textContent !== "--";
+        t.textContent = txt;
+        if (changed) flipDigit(t);
+      };
+      const two = (v) => String(v).padStart(2, "0");
+      set("d", String(d)); set("h", two(h)); set("m", two(m)); set("s", two(s));
+      box.setAttribute("aria-label", `距離聚會還有 ${d} 天 ${h} 小時 ${m} 分`);
+    });
   }
 
   /* ---------- 數據 ---------- */
@@ -228,18 +274,21 @@
     ["#homeStats", "#campusStats"].forEach((sel) => {
       const box = $(sel);
       box.textContent = "";
-      stats.forEach((s) => box.append(
-        el("span", { class: "stat" },
-          el("span", { class: "stat__num" }, s.value, el("small", {}, s.unit)),
-          el("span", { class: "stat__label" }, s.label))));
+      stats.forEach((s) => {
+        const isNumber = /^\d+$/.test(s.value);
+        box.append(
+          el("span", { class: "stat" },
+            el("span", { class: "stat__num" },
+              el("span", { "data-count": isNumber ? s.value : null }, s.value),
+              el("small", {}, s.unit)),
+            el("span", { class: "stat__label" }, s.label)));
+      });
+      observeReveal($$(".stat", box));
     });
   }
 
-  /* ---------- 首頁動態 ---------- */
+  /* ---------- 動態 ---------- */
   const calm = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  /* 電腦版太陽外圈：參與校園的名字沿著軌道轉 */
-  const ORBITS = [{ r: 222, n: 13 }, { r: 304, n: 18 }, { r: 374, n: 24 }];
 
   function svgNode(tag, attrs) {
     const node = document.createElementNS(SVG_NS, tag);
@@ -247,71 +296,98 @@
     return node;
   }
 
-  function orbitRing(names, r, id) {
-    const svg = svgNode("svg", { class: "hero__ring", viewBox: "0 0 900 900" });
-    const defs = svgNode("defs", {});
-    defs.append(svgNode("path", { id, d: `M450 ${450 - r}a${r} ${r} 0 1 1 0 ${r * 2}a${r} ${r} 0 1 1 0 -${r * 2}` }));
-    svg.append(defs);
-    /* 依字數分配位置，長校名不會和下一個撞在一起 */
-    const room = (name) => name.length + 2.5;
-    const total = names.reduce((sum, name) => sum + room(name), 0);
-    let used = 0;
-    names.forEach((name) => {
-      const text = svgNode("text", {});
-      const onPath = svgNode("textPath", { href: `#${id}`, startOffset: `${(used / total * 100).toFixed(2)}%` });
-      onPath.textContent = name;
-      text.append(onPath);
-      svg.append(text);
-      used += room(name);
-    });
-    return svg;
-  }
-
-  function countUp(node, target) {
-    if (calm()) { node.textContent = String(target); return; }
+  function countUp(node) {
+    const target = Number(node.dataset.count);
     const started = performance.now();
     const step = (now) => {
-      const t = Math.min((now - started) / 1200, 1);
+      const t = Math.min((now - started) / 1300, 1);
       node.textContent = String(Math.round(target * (1 - Math.pow(1 - t, 3))));
       if (t < 1) requestAnimationFrame(step);
     };
+    node.textContent = "0";
     requestAnimationFrame(step);
   }
 
-  function renderOrbit() {
-    const orbit = $("#heroOrbit");
-    const rings = $("#heroRings");
+  /* 校名膠帶：平常慢慢跑，往下捲時跟著加速 */
+  let tapeStarted = false;
+
+  function runTape(track) {
+    if (tapeStarted || calm()) return;
+    tapeStarted = true;
+    const tape = $("#tape");
+    let copy = track.scrollWidth / 2;
+    const measure = () => { copy = track.scrollWidth / 2; };
+    window.addEventListener("resize", measure);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
+    let hovering = false;
+    tape.addEventListener("pointerenter", () => { hovering = true; });
+    tape.addEventListener("pointerleave", () => { hovering = false; });
+    let x = 0;
+    let last = performance.now();
+    let lastY = window.scrollY;
+    let boost = 0;
+    const frame = (now) => {
+      const dt = Math.min(now - last, 50);
+      last = now;
+      boost = Math.min(boost * 0.92 + Math.abs(window.scrollY - lastY) * 0.3, 16);
+      lastY = window.scrollY;
+      if (!copy) measure();
+      if (document.body.dataset.route === "home" && !hovering && copy) {
+        x -= 0.05 * dt + boost;
+        if (-x >= copy) x += copy;
+        track.style.transform = `translate3d(${x}px, 0, 0)`;
+      }
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }
+
+  function renderTape() {
     const names = state.schools.map((s) => s.name);
-    orbit.hidden = !names.length;
-    rings.textContent = "";
+    $("#tapeWrap").hidden = !names.length;
     if (!names.length) return;
-    orbit.setAttribute("aria-label", `查看 ${names.length} 所參與校園`);
-    let at = 0;
-    ORBITS.forEach((o, i) => {
-      const picked = Array.from({ length: Math.min(o.n, names.length) }, (_, k) => names[(at + k) % names.length]);
-      at += picked.length;
-      const track = el("span", { class: `hero__track hero__track--${i + 1}` });
-      track.append(orbitRing(picked, o.r, `orbitPath${i}`));
-      rings.append(track);
+    const line = `${names.join("　/　")}　/　`;
+    const track = $("#tapeTrack");
+    track.textContent = "";
+    track.append(el("span", {}, line), el("span", {}, line));
+    $("#tape").setAttribute("aria-label", `查看 ${names.length} 所參與校園`);
+    runTape(track);
+  }
+
+  /* 手畫底線 */
+  const SCRIBBLES = ["M2 8C30 3 58 11 88 6s62-4 110 2", "M2 5c40 7 66-3 102 3s60 3 94-2", "M3 9C44 2 70 9 110 5s58 1 87 3"];
+
+  function addScribbles() {
+    $$(".section-title").forEach((title, i) => {
+      const svg = svgNode("svg", { class: "scribble", viewBox: "0 0 200 12", "aria-hidden": "true" });
+      svg.append(svgNode("path", { d: SCRIBBLES[i % SCRIBBLES.length], pathLength: "1" }));
+      title.append(svg);
     });
-    countUp($("#heroCount"), names.length);
   }
 
   /* 捲動到才浮現。瀏覽器不支援或使用者關閉動態時，內容一開始就全部顯示 */
+  let revealer = null;
+
+  function observeReveal(nodes) {
+    if (!revealer) return;
+    nodes.forEach((node) => { node.classList.add("reveal"); revealer.observe(node); });
+  }
+
   function setupReveal() {
     if (calm() || !("IntersectionObserver" in window)) return;
-    const io = new IntersectionObserver((entries) => {
+    revealer = new IntersectionObserver((entries) => {
       entries.forEach((e) => {
         if (!e.isIntersecting) return;
         e.target.classList.add("is-in");
-        io.unobserve(e.target);
+        $$("[data-count]", e.target).forEach(countUp);
+        revealer.unobserve(e.target);
       });
     }, { rootMargin: "0px 0px -6% 0px" });
-    $$(".stack > *").forEach((node) => { node.classList.add("reveal"); io.observe(node); });
+    observeReveal($$(".stack > *"));
   }
 
   function flipDigit(node) {
-    if (calm() || !node.animate) return;
+    if (calm() || !node.animate || !node.closest(".panel.is-open")) return;
     node.animate(
       [{ transform: "translateY(35%)", opacity: 0.25 }, { transform: "none", opacity: 1 }],
       { duration: 320, easing: "cubic-bezier(.22,.8,.3,1)" });
@@ -327,18 +403,19 @@
     Object.entries(counts).sort((a, b) => b[1] - a[1]).forEach(([cat, n]) => box.append(
       el("button", {
         type: "button", class: "filter__btn", "aria-pressed": String(cat === state.schoolCategory),
-        onclick: () => { state.schoolCategory = cat; renderSchoolFilter(); renderSchools(); },
+        onclick: () => { state.schoolCategory = cat; renderSchoolFilter(); renderSchools(true); },
       }, el("span", {}, cat), el("small", {}, String(n)))));
   }
 
-  function renderSchools() {
+  function renderSchools(animate) {
     const q = state.schoolQuery.trim().toLowerCase();
     const list = state.schools.filter((s) =>
       (state.schoolCategory === "全部" || s.category === state.schoolCategory) &&
       (!q || s.name.toLowerCase().includes(q)));
     const box = $("#schoolList");
     box.textContent = "";
-    list.forEach((s) => box.append(el("li", { class: "school" }, s.name)));
+    box.classList.toggle("schools--in", animate === true);
+    list.forEach((s, i) => box.append(el("li", { class: "school", style: `--i:${i}` }, s.name)));
     $("#schoolEmpty").hidden = list.length > 0;
     $("#schoolCount").textContent = `共 ${list.length} 所學校`;
   }
@@ -353,8 +430,8 @@
     state.stories.forEach((s, i) => row.append(
       el("button", { class: "story", type: "button", "aria-label": `${s.school}的照片，${hoursLeft(s.time)}`, onclick: () => openViewer(i) },
         el("img", { src: s.photo, alt: "", loading: "lazy", width: "112", height: "168" }),
-        el("span", { class: "story__left" }, hoursLeft(s.time)),
-        el("span", { class: "story__school" }, s.school))));
+        el("span", { class: "story__school" }, s.school),
+        el("span", { class: "story__left" }, hoursLeft(s.time)))));
   }
 
   function showStory(i) {
@@ -394,11 +471,10 @@
   function prayerCard(p) {
     return el("article", { class: "prayer" },
       el("header", { class: "prayer__head" },
-        el("span", { class: "prayer__avatar", "aria-hidden": "true" }, Array.from(p.name)[0]),
         el("span", { class: "prayer__who" }, el("strong", {}, p.name), p.partners ? el("span", {}, `和 ${p.partners}`) : null),
         el("time", { class: "prayer__time" }, ago(p.time))),
-      p.prayer ? el("div", { class: "prayer__block" }, el("h3", {}, icon("heart"), "代禱"), el("p", {}, p.prayer)) : null,
-      p.thanks ? el("div", { class: "prayer__block" }, el("h3", {}, icon("sun"), "感恩"), el("p", {}, p.thanks)) : null);
+      p.prayer ? el("div", { class: "prayer__block" }, el("h3", {}, "代禱"), el("p", {}, p.prayer)) : null,
+      p.thanks ? el("div", { class: "prayer__block" }, el("h3", {}, "感恩"), el("p", {}, p.thanks)) : null);
   }
 
   function renderPrayers(list) {
@@ -406,6 +482,7 @@
     wall.textContent = "";
     if (!list.length) { wall.append(el("p", { class: "empty" }, "這週還沒有人寫代禱，你可以當第一個。")); return; }
     list.forEach((p) => wall.append(prayerCard(p)));
+    observeReveal($$(".prayer", wall));
   }
 
   /* ---------- 對話框 ---------- */
@@ -557,12 +634,20 @@
     const target = TITLES[name] ? name : "home";
     document.body.dataset.route = target;
     $$(".view").forEach((v) => { v.hidden = v.dataset.view !== target; });
-    $$(".tab").forEach((t) => {
-      if (t.dataset.route === target) t.setAttribute("aria-current", "page");
-      else t.removeAttribute("aria-current");
+    $$(".tab").forEach((t, i) => {
+      if (t.dataset.route === target) {
+        t.setAttribute("aria-current", "page");
+        $("#tabbar").style.setProperty("--t", i);
+      } else {
+        t.removeAttribute("aria-current");
+      }
     });
     document.title = TITLES[target];
     window.scrollTo(0, 0);
+    const wipe = $("#wipe");
+    if (!firstRoute && !calm() && wipe.animate) {
+      wipe.animate([{ transform: "translateY(0)" }, { transform: "translateY(-100%)" }], { duration: 560, easing: "cubic-bezier(.5,0,.1,1)" });
+    }
     if (!firstRoute) $(`[data-view="${target}"] h1`).focus({ preventScroll: true });
     firstRoute = false;
   }
@@ -592,11 +677,12 @@
     route();
     renderRegionSwitches();
     renderStories();
+    addScribbles();
     setupReveal();
 
     loadInto("meetings", (list) => { state.meetings = list; renderMeetings(); }, () => { state.meetingsFailed = true; renderMeetings(); });
     loadInto("stats", renderStats);
-    loadInto("schools", (list) => { state.schools = list; renderSchoolFilter(); renderSchools(); renderOrbit(); });
+    loadInto("schools", (list) => { state.schools = list; renderSchoolFilter(); renderSchools(); renderTape(); });
     loadInto("stories", (list) => { state.stories = list; renderStories(); });
     loadInto("prayers", renderPrayers, () => {
       const wall = $("#prayerWall");

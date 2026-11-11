@@ -8,12 +8,12 @@
   <meta property="og:title" content="校園教會｜Friday Night × Sunday Reset">
   <meta property="og:description" content="查看下一場北區、中區、南區聚會。第一次來？歡迎你。">
   <meta property="og:type" content="website">
-  <meta name="theme-color" content="#0F172A">
+  <meta name="theme-color" content="#F3EDE1">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230F172A'/%3E%3Cpath d='M12 9l11 7-11 7z' fill='%23FF5500'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700;900&display=swap">
-  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Iansui&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+  <link rel="stylesheet" href="assets/css/style.css?v=poster1">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -43,7 +43,10 @@
 
   <button class="skip" type="button" id="skipLink">跳到主要內容</button>
 
-  <nav class="tabbar" aria-label="主要選單">
+  <div class="wipe" id="wipe" aria-hidden="true"></div>
+
+  <nav class="tabbar" id="tabbar" aria-label="主要選單">
+    <a class="tabbar__brand" href="#/">校園教會</a>
     <a class="tab" href="#/" data-route="home"><span class="tab__icon"><svg class="icon" aria-hidden="true"><use href="#i-home"/></svg></span><span>首頁</span></a>
     <a class="tab" href="#/welcome" data-route="welcome"><span class="tab__icon"><svg class="icon" aria-hidden="true"><use href="#i-smile"/></svg></span><span>新朋友</span></a>
     <a class="tab" href="#/prayer" data-route="prayer"><span class="tab__icon"><svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg></span><span>代禱</span></a>
@@ -55,22 +58,19 @@
     <!-- 首頁 -->
     <section class="view" data-view="home" aria-labelledby="homeTitle">
       <header class="hero">
-        <div class="hero__sun" aria-hidden="true"></div>
-        <a class="hero__orbit" id="heroOrbit" href="#/campus" hidden>
-          <span class="hero__rings" id="heroRings" aria-hidden="true"></span>
-          <span class="hero__count"><strong id="heroCount">0</strong><span>所參與校園</span></span>
-        </a>
-        <div class="wrap hero__inner">
-          <h1 class="brand" id="homeTitle" tabindex="-1">校園教會<svg class="brand__mark" viewBox="0 0 12 14" aria-hidden="true"><path d="M1 1l10 6-10 6z"/></svg></h1>
+        <div class="masthead">
+          <h1 class="brand" id="homeTitle" tabindex="-1">校園教會</h1>
           <p class="hero__tag">Friday Night × Sunday Reset</p>
-          <div class="region-switch region-switch--dark" data-region-switch></div>
-          <div id="heroMeeting" class="hero__meeting" aria-live="polite">
-            <div class="skeleton skeleton--dark" style="height:120px"></div>
-          </div>
+        </div>
+        <div id="heroMeeting" class="stage">
+          <div class="skeleton"></div>
+        </div>
+        <div class="tape-wrap" id="tapeWrap" hidden>
+          <a class="tape" id="tape" href="#/campus"><span class="tape__track" id="tapeTrack" aria-hidden="true"></span></a>
         </div>
       </header>
 
-      <div class="sheet-body">
+      <div class="sheet-body sheet-body--flush">
         <div class="wrap stack">
           <section id="laterSection" class="later" aria-labelledby="laterTitle" hidden>
             <h2 class="section-title" id="laterTitle">之後的場次</h2>
@@ -79,12 +79,12 @@
 
           <section aria-label="快速入口" class="doors">
             <button class="door" type="button" data-open="dlgSharing">
-              <span class="door__icon"><svg class="icon" aria-hidden="true"><use href="#i-pen"/></svg></span>
               <span class="door__text"><strong>聚會回填</strong><span>分享感恩、一起代禱</span></span>
+              <svg class="icon door__go" aria-hidden="true"><use href="#i-arrow"/></svg>
             </button>
             <a class="door" id="photosLink" target="_blank" rel="noopener">
-              <span class="door__icon"><svg class="icon" aria-hidden="true"><use href="#i-image"/></svg></span>
               <span class="door__text"><strong>照片專區</strong><span>到雲端相簿找照片</span></span>
+              <svg class="icon door__go" aria-hidden="true"><use href="#i-external"/></svg>
             </a>
           </section>
 
@@ -95,14 +95,16 @@
             </div>
             <div class="stories" id="storyRow"></div>
           </section>
+        </div>
 
-          <section aria-labelledby="statsTitle">
-            <a class="vision" href="#/campus">
+        <section aria-labelledby="statsTitle" style="margin-top:clamp(40px,6vw,80px)">
+          <a class="vision" href="#/campus">
+            <span class="wrap" style="display:block">
               <span class="vision__head"><strong id="statsTitle">校園 1000</strong><span class="vision__more">看所有學校<svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></span></span>
               <span class="stats" id="homeStats"></span>
-            </a>
-          </section>
-        </div>
+            </span>
+          </a>
+        </section>
       </div>
     </section>
 
@@ -213,7 +215,7 @@
 
     <!-- 校園 -->
     <section class="view" data-view="campus" aria-labelledby="campusTitle" hidden>
-      <header class="page-head">
+      <header class="page-head page-head--region">
         <div class="wrap">
           <h1 class="page-title" id="campusTitle" tabindex="-1">校園 1000</h1>
           <div class="stats stats--head" id="campusStats"></div>
@@ -240,8 +242,8 @@
 
   <footer class="footer">
     <div class="wrap">
+      <p class="footer__big">Friday Night × Sunday Reset</p>
       <p class="footer__brand">校園教會</p>
-      <p class="footer__tag">Friday Night × Sunday Reset</p>
       <p class="footer__demo" id="demoNote" hidden>目前顯示的是範例資料</p>
     </div>
   </footer>
@@ -343,6 +345,6 @@
 
   <script src="config.js"></script>
   <script src="assets/js/data.js"></script>
-  <script src="assets/js/app.js"></script>
+  <script src="assets/js/app.js?v=poster1"></script>
 </body>
 </html>
