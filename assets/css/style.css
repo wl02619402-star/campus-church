@@ -406,7 +406,7 @@ dialog { color: var(--ink); }
 
 /* 手機、平板：一次看一區，色塊點開；場次表只列目前地區 */
 @media (max-width: 959px) {
-  .panel__title, .later__region { display: none; }
+  .later__region { display: none; }
   .later__list .is-other, .later--none-here { display: none; }
   .later--none-here + * { margin-top: 0; }
 }
@@ -427,37 +427,41 @@ dialog { color: var(--ink); }
 
   .masthead { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
 
-  .stage { --sticker: clamp(104px, 9vw, 132px); --date: clamp(120px, 14vw, 230px); flex-direction: row; min-height: clamp(540px, 68svh, 660px); border-top: 0; }
+  .stage { --tab: clamp(90px, 8.4vw, 118px); --sticker: clamp(130px, 14vw, 250px); --date: clamp(190px, 21vw, 420px); flex-direction: row; height: clamp(520px, 66svh, 680px); border-top: 0; }
   .stage > .skeleton { flex: 1; height: auto; }
-  .panel { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+  .panel { flex: 0 0 var(--tab); overflow: hidden; transition: flex-basis .65s var(--ease), flex-grow .65s var(--ease); }
+  .panel.is-open { flex: 1 1 0; }
   .panel + .panel { border-top: 0; border-left: var(--rule); }
-  .panel__tab { display: none; }
+  .panel:not(.is-open):hover { flex-basis: calc(var(--tab) + 26px); }
 
-  .panel__fold { flex: 1; display: block; }
-  .panel__body { height: 100%; visibility: visible; }
-  .panel__inner { height: 100%; display: flex; flex-direction: column; padding: clamp(22px, 2.2vw, 34px) clamp(20px, 2.4vw, 38px) clamp(22px, 2.2vw, 32px); }
-  .panel__title { font: 900 clamp(44px, 4.4vw, 66px)/1.1 var(--sans); }
-  .panel__note { margin-top: 2px; font-size: clamp(17px, 1.5vw, 22px); }
-  .panel__date { margin-top: clamp(22px, 2.4vw, 34px); transition: transform .35s var(--ease); }
-  .panel__none { margin-top: 40px; font-size: clamp(44px, 4.6vw, 68px); }
-  .panel__foot { flex: 1; display: flex; flex-direction: column; }
-  .panel__when { font-size: clamp(24px, 2.2vw, 32px); }
-  .panel__when b { font-size: clamp(28px, 2.6vw, 38px); }
-  .panel__venue { align-self: flex-start; font-size: clamp(17px, 1.4vw, 20px); }
-  .panel__actions { margin-top: auto; padding-top: 16px; }
-  .panel__actions .btn { flex: 0 1 auto; min-height: 56px; padding-inline: 22px; max-width: none; }
+  .panel__tab { position: absolute; z-index: 2; left: 0; top: 0; bottom: 0; width: var(--tab); height: auto; padding: 28px 0; flex-direction: row; justify-content: space-between; align-items: center; writing-mode: vertical-rl; }
+  .panel__name { font-size: clamp(46px, 4.3vw, 60px); letter-spacing: .06em; }
+  .panel__peek { margin: 0; font-size: clamp(36px, 3.2vw, 44px); align-items: center; transition: opacity .3s; }
+  .panel__peek small { font-size: 20px; }
+  .panel__mark { display: none; }
 
-  /* 三欄同時打開，進場動態每欄都跑 */
-  .panel .panel__date span { animation: digit-up .75s calc(.1s + var(--i) * .055s) var(--ease) both; }
-  .panel .panel__note, .panel .panel__info, .panel .panel__actions { animation: rise .55s .3s var(--ease) both; }
-  .panel .sticker { animation: stamp .5s .42s cubic-bezier(.3, 1.4, .5, 1) both; }
+  .panel__fold { position: absolute; left: var(--tab); top: 0; bottom: 0; width: calc(100vw - var(--tab) * var(--n)); display: block; transition: opacity .35s; }
+  .panel:not(.is-open) .panel__fold { opacity: 0; }
+  .panel__body { height: 100%; }
+  .panel__inner { height: 100%; display: flex; flex-direction: column; justify-content: center; padding: clamp(22px, 2.4vw, 36px) clamp(28px, 3.6vw, 60px) clamp(22px, 2.3vw, 34px); }
+  .panel__note { font-size: clamp(20px, 1.8vw, 26px); }
+  .panel__date { margin-top: 0; }
+  .panel__none { font-size: clamp(72px, 8vw, 120px); }
+  .panel__foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; }
+  .panel__info { flex: 0 1 auto; min-width: 0; }
+  .panel__when { font-size: clamp(26px, 2.4vw, 36px); }
+  .panel__when b { font-size: clamp(30px, 2.8vw, 42px); }
+  .panel__venue { font-size: clamp(18px, 1.6vw, 24px); text-wrap: balance; }
+  .panel__actions { flex: none; margin-top: 0; }
+  .panel__actions .btn { flex: 0 1 auto; min-height: 60px; padding-inline: 28px; font-size: 18px; max-width: none; }
 
-  .sticker { top: clamp(18px, 2vw, 30px); right: clamp(18px, 2vw, 30px); width: var(--sticker); height: var(--sticker); transition: transform .4s cubic-bezier(.3, 1.4, .5, 1); }
-  .sticker__top { font-size: clamp(14px, 1.2vw, 18px); }
-  .sticker__big { font-size: clamp(44px, 4.2vw, 62px); }
-  .sticker__big small { font-size: clamp(14px, 1.2vw, 18px); }
-  .sticker__clock { font-size: clamp(16px, 1.5vw, 22px); }
-  .sticker--live { font-size: 18px; }
+  /* 倒數貼紙放在日期右邊，補滿展開區 */
+  .sticker { top: calc(42% - var(--sticker) / 2); right: clamp(24px, 5.6vw, 96px); width: var(--sticker); height: var(--sticker); transition: transform .4s cubic-bezier(.3, 1.4, .5, 1); }
+  .sticker__top { font-size: clamp(16px, 1.7vw, 28px); }
+  .sticker__big { font-size: clamp(54px, 6vw, 106px); }
+  .sticker__big small { font-size: clamp(16px, 1.6vw, 26px); margin-left: 4px; }
+  .sticker__clock { font-size: clamp(19px, 2vw, 36px); margin-top: 2px; }
+  .sticker--live { font-size: 24px; padding: 20px; }
 
   /* 全站字級收斂：大字留給日期，其他退一階 */
   .page-title { font-size: clamp(72px, 8vw, 112px); }
@@ -494,8 +498,7 @@ dialog { color: var(--ink); }
 }
 
 @media (hover: hover) and (min-width: 960px) {
-  .panel:hover .sticker { transform: rotate(7deg) scale(1.07); }
-  .panel:hover .panel__date { transform: translateX(6px); }
+  .panel.is-open:hover .sticker { transform: rotate(7deg) scale(1.05); }
 }
 
 @media (hover: hover) {

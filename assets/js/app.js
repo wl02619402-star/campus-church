@@ -137,10 +137,8 @@
   }
 
   function panelContent(region, next) {
-    const title = el("h2", { class: "panel__title" }, region);
     if (!next) {
       return [
-        title,
         el("p", { class: "panel__note" }, "下一場聚會"),
         el("p", { class: "panel__none" }, "時間確認中"),
         el("div", { class: "panel__actions" },
@@ -149,7 +147,6 @@
     }
     const p = dateParts(next.start);
     return [
-      title,
       el("p", { class: "panel__note" }, "下一場聚會"),
       dateDigits(p.md),
       el("div", { class: "panel__foot" },
@@ -166,8 +163,9 @@
 
   const isWide = () => window.matchMedia("(min-width: 960px)").matches;
 
-  /* 電腦版三欄：三個日期用同一個字級，放得進最窄的那一欄，最大 230px */
-  const DATE_MAX = 230;
+  /* 電腦版展開區：日期佔左邊約三分之二，右邊留給倒數貼紙；三區用同一個字級，切換時才不會忽大忽小 */
+  const DATE_SHARE = 0.66;
+  const DATE_MAX = 400;
 
   function fitDates() {
     const dates = $$(".panel__date");
@@ -179,8 +177,12 @@
       const fontSize = parseFloat(getComputedStyle(date).fontSize);
       const textWidth = $$("span[style]", date).reduce((sum, d) => sum + d.getBoundingClientRect().width, 0);
       if (!textWidth || !fontSize) return Infinity;
-      const room = inner.clientWidth - parseFloat(box.paddingLeft) - parseFloat(box.paddingRight);
-      return room / (textWidth / fontSize);
+      const others = Array.from(inner.children)
+        .filter((child) => child !== date)
+        .reduce((sum, child) => sum + child.getBoundingClientRect().height, 0);
+      const roomW = inner.clientWidth - parseFloat(box.paddingLeft) - parseFloat(box.paddingRight);
+      const roomH = inner.clientHeight - parseFloat(box.paddingTop) - parseFloat(box.paddingBottom) - others;
+      return Math.min(roomW * DATE_SHARE / (textWidth / fontSize), roomH / 1.04);
     });
     const size = Math.floor(Math.min(DATE_MAX, ...fits));
     dates.forEach((date) => date.style.setProperty("--date", `${size}px`));
@@ -214,7 +216,7 @@
       const open = panel.dataset.panel === state.region;
       panel.classList.toggle("is-open", open);
       $(".panel__tab", panel).setAttribute("aria-expanded", String(open));
-      $(".panel__fold", panel).inert = !open && !isWide();
+      $(".panel__fold", panel).inert = !open;
     });
   }
 
@@ -417,7 +419,7 @@
   }
 
   function flipDigit(node) {
-    if (calm() || !node.animate || !(isWide() || node.closest(".panel.is-open"))) return;
+    if (calm() || !node.animate || !node.closest(".panel.is-open")) return;
     node.animate(
       [{ transform: "translateY(35%)", opacity: 0.25 }, { transform: "none", opacity: 1 }],
       { duration: 320, easing: "cubic-bezier(.22,.8,.3,1)" });
@@ -705,7 +707,6 @@
     setupForms();
     window.addEventListener("hashchange", () => { route(); fitDates(); });
     window.addEventListener("resize", fitDates);
-    window.matchMedia("(min-width: 960px)").addEventListener("change", syncPanels);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitDates);
     route();
     renderRegionSwitches();
