@@ -218,7 +218,7 @@
     const h = Math.floor((diff % 864e5) / 36e5);
     const m = Math.floor((diff % 36e5) / 6e4);
     const s = Math.floor((diff % 6e4) / 1000);
-    const set = (u, v) => { const t = $(`[data-unit="${u}"]`, box); const txt = String(v).padStart(2, "0"); if (t.textContent !== txt) t.textContent = txt; };
+    const set = (u, v) => { const t = $(`[data-unit="${u}"]`, box); const txt = String(v).padStart(2, "0"); if (t.textContent !== txt) { const changed = t.textContent !== "--"; t.textContent = txt; if (changed) flipDigit(t); } };
     set("d", d); set("h", h); set("m", m); set("s", s);
     box.setAttribute("aria-label", `距離聚會還有 ${d} 天 ${h} 小時 ${m} 分`);
   }
@@ -233,6 +233,88 @@
           el("span", { class: "stat__num" }, s.value, el("small", {}, s.unit)),
           el("span", { class: "stat__label" }, s.label))));
     });
+  }
+
+  /* ---------- 首頁動態 ---------- */
+  const calm = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* 電腦版太陽外圈：參與校園的名字沿著軌道轉 */
+  const ORBITS = [{ r: 222, n: 13 }, { r: 304, n: 18 }, { r: 374, n: 24 }];
+
+  function svgNode(tag, attrs) {
+    const node = document.createElementNS(SVG_NS, tag);
+    Object.entries(attrs).forEach(([k, v]) => node.setAttribute(k, v));
+    return node;
+  }
+
+  function orbitRing(names, r, id) {
+    const svg = svgNode("svg", { class: "hero__ring", viewBox: "0 0 900 900" });
+    const defs = svgNode("defs", {});
+    defs.append(svgNode("path", { id, d: `M450 ${450 - r}a${r} ${r} 0 1 1 0 ${r * 2}a${r} ${r} 0 1 1 0 -${r * 2}` }));
+    svg.append(defs);
+    /* 依字數分配位置，長校名不會和下一個撞在一起 */
+    const room = (name) => name.length + 2.5;
+    const total = names.reduce((sum, name) => sum + room(name), 0);
+    let used = 0;
+    names.forEach((name) => {
+      const text = svgNode("text", {});
+      const onPath = svgNode("textPath", { href: `#${id}`, startOffset: `${(used / total * 100).toFixed(2)}%` });
+      onPath.textContent = name;
+      text.append(onPath);
+      svg.append(text);
+      used += room(name);
+    });
+    return svg;
+  }
+
+  function countUp(node, target) {
+    if (calm()) { node.textContent = String(target); return; }
+    const started = performance.now();
+    const step = (now) => {
+      const t = Math.min((now - started) / 1200, 1);
+      node.textContent = String(Math.round(target * (1 - Math.pow(1 - t, 3))));
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  function renderOrbit() {
+    const orbit = $("#heroOrbit");
+    const rings = $("#heroRings");
+    const names = state.schools.map((s) => s.name);
+    orbit.hidden = !names.length;
+    rings.textContent = "";
+    if (!names.length) return;
+    orbit.setAttribute("aria-label", `查看 ${names.length} 所參與校園`);
+    let at = 0;
+    ORBITS.forEach((o, i) => {
+      const picked = Array.from({ length: Math.min(o.n, names.length) }, (_, k) => names[(at + k) % names.length]);
+      at += picked.length;
+      const track = el("span", { class: `hero__track hero__track--${i + 1}` });
+      track.append(orbitRing(picked, o.r, `orbitPath${i}`));
+      rings.append(track);
+    });
+    countUp($("#heroCount"), names.length);
+  }
+
+  /* 捲動到才浮現。瀏覽器不支援或使用者關閉動態時，內容一開始就全部顯示 */
+  function setupReveal() {
+    if (calm() || !("IntersectionObserver" in window)) return;
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (!e.isIntersecting) return;
+        e.target.classList.add("is-in");
+        io.unobserve(e.target);
+      });
+    }, { rootMargin: "0px 0px -6% 0px" });
+    $$(".stack > *").forEach((node) => { node.classList.add("reveal"); io.observe(node); });
+  }
+
+  function flipDigit(node) {
+    if (calm() || !node.animate) return;
+    node.animate(
+      [{ transform: "translateY(35%)", opacity: 0.25 }, { transform: "none", opacity: 1 }],
+      { duration: 320, easing: "cubic-bezier(.22,.8,.3,1)" });
   }
 
   /* ---------- 學校 ---------- */
@@ -510,10 +592,11 @@
     route();
     renderRegionSwitches();
     renderStories();
+    setupReveal();
 
     loadInto("meetings", (list) => { state.meetings = list; renderMeetings(); }, () => { state.meetingsFailed = true; renderMeetings(); });
     loadInto("stats", renderStats);
-    loadInto("schools", (list) => { state.schools = list; renderSchoolFilter(); renderSchools(); });
+    loadInto("schools", (list) => { state.schools = list; renderSchoolFilter(); renderSchools(); renderOrbit(); });
     loadInto("stories", (list) => { state.stories = list; renderStories(); });
     loadInto("prayers", renderPrayers, () => {
       const wall = $("#prayerWall");
