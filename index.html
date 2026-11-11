@@ -175,25 +175,33 @@
         <div class="wrap">
           <h1 class="page-title" id="prayerTitle" tabindex="-1">本週代禱牆</h1>
           <p class="page-lead">為彼此禱告，也一起數算感恩。</p>
-          <button class="btn btn--primary page-head__cta" type="button" data-open="dlgSharing"><svg class="icon" aria-hidden="true"><use href="#i-pen"/></svg><span>回填今天的聚會</span></button>
         </div>
       </header>
       <div class="sheet-body">
         <div class="wrap stack">
-          <div class="rows">
-            <button class="row" type="button" data-open="dlgPrivate">
-              <span class="row__icon"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg></span>
-              <span class="row__text"><strong>私密代禱</strong><span>只有關懷同工看得到</span></span>
-              <svg class="icon row__go" aria-hidden="true"><use href="#i-right"/></svg>
+          <section aria-labelledby="prayerWriteTitle">
+            <h2 class="section-title" id="prayerWriteTitle">寫下你的代禱</h2>
+            <div class="rows rows--titled">
+              <button class="row" type="button" data-open="dlgSharing">
+                <span class="row__icon"><svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg></span>
+                <span class="row__text"><strong>公開代禱</strong><span>寫下代禱和感恩，大家一起禱告</span></span>
+                <svg class="icon row__go" aria-hidden="true"><use href="#i-right"/></svg>
+              </button>
+              <button class="row" type="button" data-open="dlgPrivate">
+                <span class="row__icon"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg></span>
+                <span class="row__text"><strong>私密代禱</strong><span>不公開，只有關懷同工看得到</span></span>
+                <svg class="icon row__go" aria-hidden="true"><use href="#i-right"/></svg>
+              </button>
+            </div>
+            <button class="staff-link" type="button" data-open="dlgInvite">
+              <svg class="icon" aria-hidden="true"><use href="#i-users"/></svg>
+              <span>同工專用：邀約新朋友集氣</span>
+              <svg class="icon staff-link__go" aria-hidden="true"><use href="#i-right"/></svg>
             </button>
-            <button class="row" type="button" data-open="dlgInvite">
-              <span class="row__icon"><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg></span>
-              <span class="row__text"><strong>邀約新朋友集氣</strong><span>同工專用</span></span>
-              <svg class="icon row__go" aria-hidden="true"><use href="#i-right"/></svg>
-            </button>
-          </div>
-          <section aria-label="代禱內容">
-            <div class="wall" id="prayerWall"></div>
+          </section>
+          <section aria-labelledby="prayerWallTitle">
+            <h2 class="section-title" id="prayerWallTitle">大家的代禱</h2>
+            <div class="wall wall--titled" id="prayerWall"></div>
           </section>
         </div>
       </div>
@@ -236,7 +244,7 @@
 
   <!-- 聚會回填 -->
   <dialog class="sheet" id="dlgSharing" aria-labelledby="sharingTitle">
-    <div class="sheet__head"><h2 id="sharingTitle">回填今天的聚會</h2><button class="icon-btn" type="button" data-close aria-label="關閉"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+    <div class="sheet__head"><h2 id="sharingTitle">公開代禱與感恩</h2><button class="icon-btn" type="button" data-close aria-label="關閉"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button></div>
     <div class="sheet__body">
       <form class="form" data-form="sharing" data-require-one="prayer,thanks" novalidate>
         <div class="field"><label for="sh-name">你的暱稱 <em>必填</em></label><input id="sh-name" name="name" size="1" required><p class="field__err" hidden></p></div>
@@ -244,7 +252,7 @@
         <div class="field"><label for="sh-prayer">本週代禱事項</label><textarea id="sh-prayer" name="prayer" rows="3"></textarea></div>
         <div class="field"><label for="sh-thanks">本週感恩事項</label><textarea id="sh-thanks" name="thanks" rows="3"></textarea><p class="field__err" hidden></p></div>
         <p class="notice">內容會顯示在代禱牆上。提到別人請用暱稱，比較私人的事可以改用<button class="link" type="button" data-swap="dlgPrivate">私密代禱</button>。</p>
-        <button class="btn btn--primary btn--block" type="submit"><svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg><span>送出回填</span></button>
+        <button class="btn btn--primary btn--block" type="submit"><svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg><span>送到代禱牆</span></button>
         <p class="form__err" role="alert" hidden></p>
       </form>
       <div class="success" data-success="sharing" tabindex="-1" hidden>

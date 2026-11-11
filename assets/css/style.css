@@ -258,6 +258,10 @@ input::placeholder { color: #566072; opacity: 1; }
 .row__text strong { font-size: 17px; }
 .row__text span { font-size: 14px; color: var(--ink-2); }
 .row__go { color: var(--ink-2); }
+.rows--titled, .wall--titled { margin-top: 14px; }
+.staff-link { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; margin-top: 8px; padding: 4px 2px; font-size: 15px; color: var(--ink-2); text-align: left; background: none; border: 0; cursor: pointer; }
+.staff-link span { min-width: 0; }
+.staff-link__go { margin-left: auto; }
 .wall { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .prayer { min-width: 0; padding: 18px; background: var(--card); border-radius: var(--radius); }
 .prayer__head { display: flex; align-items: center; gap: 10px; }

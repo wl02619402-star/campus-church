@@ -322,7 +322,7 @@
   function renderPrayers(list) {
     const wall = $("#prayerWall");
     wall.textContent = "";
-    if (!list.length) { wall.append(el("p", { class: "empty" }, "這週還沒有人回填，你可以當第一個。")); return; }
+    if (!list.length) { wall.append(el("p", { class: "empty" }, "這週還沒有人寫代禱，你可以當第一個。")); return; }
     list.forEach((p) => wall.append(prayerCard(p)));
   }
 
