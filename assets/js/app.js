@@ -154,11 +154,33 @@
           el("p", { class: "panel__when" }, p.dow, el("b", {}, p.time)),
           el("a", { class: "panel__venue", href: mapURL(next), target: "_blank", rel: "noopener" },
             next.venue, el("span", { class: "sr-only" }, "（開啟地圖）"))),
+        countdownSticker(region),
         el("div", { class: "panel__actions" },
           el("a", { class: "btn btn--ink", href: "#/welcome" }, "第一次來？", icon("arrow")),
           el("a", { class: "text-link", href: calendarURL(next), target: "_blank", rel: "noopener" }, "加到行事曆"))),
-      countdownSticker(region),
     ];
+  }
+
+  /* 電腦版：日期依色塊大小自動放到最大，不留空白 */
+  function fitDates() {
+    const wide = window.matchMedia("(min-width: 960px)").matches;
+    $$(".panel__date").forEach((date) => {
+      date.style.removeProperty("--date");
+      if (!wide) return;
+      const inner = date.closest(".panel__inner");
+      const box = getComputedStyle(inner);
+      const digits = $$("span[style]", date);
+      const fontSize = parseFloat(getComputedStyle(date).fontSize);
+      const textWidth = digits.reduce((sum, d) => sum + d.getBoundingClientRect().width, 0);
+      if (!textWidth || !fontSize) return;
+      const others = Array.from(inner.children)
+        .filter((child) => child !== date && getComputedStyle(child).position !== "absolute")
+        .reduce((sum, child) => sum + child.getBoundingClientRect().height, 0);
+      const roomW = inner.clientWidth - parseFloat(box.paddingLeft) - parseFloat(box.paddingRight);
+      const roomH = inner.clientHeight - parseFloat(box.paddingTop) - parseFloat(box.paddingBottom) - others;
+      const size = Math.floor(Math.min(roomW / (textWidth / fontSize), roomH / 1.04));
+      if (size > 0) date.style.setProperty("--date", `${size}px`);
+    });
   }
 
   function regionPanel(r) {
@@ -181,6 +203,7 @@
     box.style.setProperty("--n", C.regions.length);
     C.regions.forEach((r) => box.append(regionPanel(r)));
     syncPanels();
+    fitDates();
   }
 
   function syncPanels() {
@@ -673,7 +696,9 @@
 
     setupDialogs();
     setupForms();
-    window.addEventListener("hashchange", route);
+    window.addEventListener("hashchange", () => { route(); fitDates(); });
+    window.addEventListener("resize", fitDates);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitDates);
     route();
     renderRegionSwitches();
     renderStories();

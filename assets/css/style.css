@@ -420,15 +420,15 @@ dialog { color: var(--ink); }
 
   .masthead { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
 
-  .stage { --tab: 118px; --date: clamp(190px, 21vw, 340px); flex-direction: row; height: clamp(540px, calc(100svh - 64px - 42px), 880px); border-top: 0; }
+  .stage { --tab: clamp(90px, 8.4vw, 118px); --date: clamp(190px, 21vw, 340px); flex-direction: row; height: clamp(600px, calc(100svh - 64px - 42px), 1040px); border-top: 0; }
   .panel { flex: 0 0 var(--tab); overflow: hidden; transition: flex-basis .65s var(--ease), flex-grow .65s var(--ease); }
   .panel.is-open { flex: 1 1 0; }
   .panel + .panel { border-top: 0; border-left: var(--rule); }
   .panel:not(.is-open):hover { flex-basis: calc(var(--tab) + 26px); }
 
   .panel__tab { position: absolute; z-index: 2; left: 0; top: 0; bottom: 0; width: var(--tab); height: auto; padding: 28px 0; flex-direction: row; justify-content: space-between; align-items: center; writing-mode: vertical-rl; }
-  .panel__name { font-size: 60px; letter-spacing: .06em; }
-  .panel__peek { margin: 0; font-size: 44px; align-items: center; }
+  .panel__name { font-size: clamp(46px, 4.3vw, 60px); letter-spacing: .06em; }
+  .panel__peek { margin: 0; font-size: clamp(36px, 3.2vw, 44px); align-items: center; }
   .panel__peek small { font-size: 20px; }
   .panel__mark { display: none; }
 
@@ -438,19 +438,26 @@ dialog { color: var(--ink); }
   .panel__note { font-size: 28px; }
   .panel__date { margin-top: 0; }
   .panel__none { font-size: clamp(80px, 9vw, 150px); }
-  .panel__foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; }
+  .panel__foot { display: flex; align-items: flex-end; justify-content: space-between; gap: clamp(16px, 2.2vw, 40px); }
+  .panel__info { flex: 0 1 auto; min-width: 0; }
   .panel__when { font-size: clamp(30px, 3vw, 42px); }
   .panel__when b { font-size: clamp(36px, 3.4vw, 50px); }
   .panel__venue { font-size: clamp(20px, 1.8vw, 26px); }
   .panel__actions { flex: none; margin-top: 0; }
   .panel__actions .btn { min-height: 64px; padding-inline: 34px; font-size: 20px; max-width: none; }
 
-  .sticker { right: clamp(32px, 6vw, 110px); top: clamp(28px, 7vh, 72px); width: clamp(176px, 17vw, 256px); height: clamp(176px, 17vw, 256px); }
-  .sticker__top { font-size: clamp(20px, 1.8vw, 26px); }
-  .sticker__big { font-size: clamp(76px, 7.4vw, 112px); }
-  .sticker__big small { font-size: clamp(20px, 1.8vw, 26px); margin-left: 4px; }
-  .sticker__clock { font-size: clamp(22px, 2vw, 30px); margin-top: 4px; }
-  .sticker--live { font-size: 26px; padding: 24px; }
+  /* 電腦版倒數：一張斜貼的長條，和地點、按鈕排同一行 */
+  .sticker { position: static; flex: none; width: auto; height: auto; flex-direction: row; gap: clamp(8px, 1.1vw, 18px); padding: clamp(8px, .9vw, 14px) clamp(14px, 1.6vw, 26px); border-radius: 0; transform: rotate(-2deg); }
+  .sticker__top { font-size: clamp(20px, 2vw, 30px); }
+  .sticker__big { font-size: clamp(50px, 5.4vw, 92px); }
+  .sticker__big small { font-size: clamp(18px, 1.7vw, 26px); margin-left: 4px; }
+  .sticker__clock { font-size: clamp(24px, 2.7vw, 44px); }
+  .sticker--live { font-size: 26px; padding: 18px 26px; }
+
+  /* 新朋友頁：左邊選場次，右邊填表單 */
+  .wrap--narrow.stack { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(40px, 6vw, 96px); align-items: start; max-width: 1240px; }
+  .wrap--narrow.stack > * + * { margin-top: 0; }
+  .wrap--narrow.stack > :first-child { position: sticky; top: 96px; }
 
   .tape { padding-block: 11px; }
   .tape__track { font-size: 20px; }
@@ -464,6 +471,11 @@ dialog { color: var(--ink); }
   .school::after { margin-left: 18px; }
   .page-head { padding-block: 60px 44px; }
   .footer { padding-bottom: 28px; }
+}
+
+@media (min-width: 960px) and (max-width: 1199px) {
+  .panel__actions { flex-direction: column; align-items: flex-end; gap: 2px; }
+  .panel__actions .btn { min-height: 54px; padding-inline: 20px; font-size: 18px; }
 }
 
 @media (hover: hover) {
