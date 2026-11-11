@@ -137,8 +137,10 @@
   }
 
   function panelContent(region, next) {
+    const title = el("h2", { class: "panel__title" }, region);
     if (!next) {
       return [
+        title,
         el("p", { class: "panel__note" }, "下一場聚會"),
         el("p", { class: "panel__none" }, "時間確認中"),
         el("div", { class: "panel__actions" },
@@ -147,6 +149,7 @@
     }
     const p = dateParts(next.start);
     return [
+      title,
       el("p", { class: "panel__note" }, "下一場聚會"),
       dateDigits(p.md),
       el("div", { class: "panel__foot" },
@@ -161,26 +164,26 @@
     ];
   }
 
-  /* 電腦版：日期依色塊大小自動放到最大，不留空白 */
+  const isWide = () => window.matchMedia("(min-width: 960px)").matches;
+
+  /* 電腦版三欄：三個日期用同一個字級，放得進最窄的那一欄，最大 230px */
+  const DATE_MAX = 230;
+
   function fitDates() {
-    const wide = window.matchMedia("(min-width: 960px)").matches;
-    $$(".panel__date").forEach((date) => {
-      date.style.removeProperty("--date");
-      if (!wide) return;
+    const dates = $$(".panel__date");
+    dates.forEach((date) => date.style.removeProperty("--date"));
+    if (!isWide()) return;
+    const fits = dates.map((date) => {
       const inner = date.closest(".panel__inner");
       const box = getComputedStyle(inner);
-      const digits = $$("span[style]", date);
       const fontSize = parseFloat(getComputedStyle(date).fontSize);
-      const textWidth = digits.reduce((sum, d) => sum + d.getBoundingClientRect().width, 0);
-      if (!textWidth || !fontSize) return;
-      const others = Array.from(inner.children)
-        .filter((child) => child !== date && getComputedStyle(child).position !== "absolute")
-        .reduce((sum, child) => sum + child.getBoundingClientRect().height, 0);
-      const roomW = inner.clientWidth - parseFloat(box.paddingLeft) - parseFloat(box.paddingRight);
-      const roomH = inner.clientHeight - parseFloat(box.paddingTop) - parseFloat(box.paddingBottom) - others;
-      const size = Math.floor(Math.min(roomW / (textWidth / fontSize), roomH / 1.04));
-      if (size > 0) date.style.setProperty("--date", `${size}px`);
+      const textWidth = $$("span[style]", date).reduce((sum, d) => sum + d.getBoundingClientRect().width, 0);
+      if (!textWidth || !fontSize) return Infinity;
+      const room = inner.clientWidth - parseFloat(box.paddingLeft) - parseFloat(box.paddingRight);
+      return room / (textWidth / fontSize);
     });
+    const size = Math.floor(Math.min(DATE_MAX, ...fits));
+    dates.forEach((date) => date.style.setProperty("--date", `${size}px`));
   }
 
   function regionPanel(r) {
@@ -211,20 +214,24 @@
       const open = panel.dataset.panel === state.region;
       panel.classList.toggle("is-open", open);
       $(".panel__tab", panel).setAttribute("aria-expanded", String(open));
-      $(".panel__fold", panel).inert = !open;
+      $(".panel__fold", panel).inert = !open && !isWide();
     });
   }
 
   function renderLater() {
-    const { later } = meetingsFor(state.region);
+    /* 全部地區都畫出來：電腦版一起列，手機版用樣式只顯示目前地區 */
+    const later = C.regions.flatMap((r) => meetingsFor(r.name).later).sort((a, b) => a.start - b.start);
     const section = $("#laterSection");
     const list = $("#laterList");
     section.hidden = later.length === 0;
+    section.classList.toggle("later--none-here", !later.some((m) => m.region === state.region));
     list.textContent = "";
     later.forEach((m) => {
       const p = dateParts(m.start);
-      list.append(el("li", {},
+      const color = C.regions.find((r) => r.name === m.region).color;
+      list.append(el("li", { class: m.region === state.region ? null : "is-other" },
         el("a", { class: "later__item", href: mapURL(m), target: "_blank", rel: "noopener" },
+          el("span", { class: "later__region", style: `--c:${color}` }, m.region),
           el("span", { class: "later__date" }, el("strong", {}, p.md), el("span", {}, p.dow)),
           el("span", { class: "later__info" }, el("strong", {}, m.venue), el("span", {}, p.time)),
           icon("pin"))));
@@ -410,7 +417,7 @@
   }
 
   function flipDigit(node) {
-    if (calm() || !node.animate || !node.closest(".panel.is-open")) return;
+    if (calm() || !node.animate || !(isWide() || node.closest(".panel.is-open"))) return;
     node.animate(
       [{ transform: "translateY(35%)", opacity: 0.25 }, { transform: "none", opacity: 1 }],
       { duration: 320, easing: "cubic-bezier(.22,.8,.3,1)" });
@@ -698,6 +705,7 @@
     setupForms();
     window.addEventListener("hashchange", () => { route(); fitDates(); });
     window.addEventListener("resize", fitDates);
+    window.matchMedia("(min-width: 960px)").addEventListener("change", syncPanels);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitDates);
     route();
     renderRegionSwitches();
