@@ -705,66 +705,200 @@
     $("#tagMeta").textContent = [school, by ? `${by} 邀請我來` : ""].filter(Boolean).join("　");
   }
 
-  /* 送出後：名牌折成紙飛機寄給同工 → 另一架紙飛機飛回來、打開變回名牌 → 蓋上「收到了」 → 學校跳進跑馬燈 */
+  /* 送出後：名牌真的折成立體紙飛機 → 飛走寄給同工 → 另一架飛回來、攤開變回名牌 → 蓋上「收到了」 */
   const MY_SCHOOL_KEY = "campus-church-my-school";
-  const PLANE_OUT_AT = 280;
-  const PLANE_OUT_MS = 1050;
-  const PLANE_BACK_AT = 1550;
-  const PLANE_BACK_MS = 1150;
-  const UNFOLD_AT = PLANE_BACK_AT + PLANE_BACK_MS;
-  const INK_AT = UNFOLD_AT + 420;
-  const TAPE_AT = INK_AT + 280;
 
-  function paperPlane() {
-    const plane = svgNode("svg", { class: "plane", viewBox: "0 0 120 80", "aria-hidden": "true" });
-    plane.append(svgNode("use", { href: "#i-plane" }));
-    return plane;
+  /* 摺紙引擎：名牌拆成 8 片紙，每一片依序沿折線轉動。
+     直式紙張座標：u 往右、v 往下、z 往觀看的人。機鼻在最上面（v = 0），折好後整架轉 90 度，機鼻朝右。 */
+  const EPS = 0.5;                                  /* 紙的厚度，疊在一起的紙不會互相穿透 */
+  const ALPHA_END = (36 * Math.PI) / 180;           /* 機翼最後張開的角度 */
+  const ORIGAMI = { tilt: 380, fold: 1550, hold: 380, out: 820 };
+
+  const mat = {
+    id: () => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+    mul(a, b) {
+      const o = new Array(16);
+      for (let c = 0; c < 4; c += 1) {
+        for (let r = 0; r < 4; r += 1) {
+          let s = 0;
+          for (let k = 0; k < 4; k += 1) s += a[k * 4 + r] * b[c * 4 + k];
+          o[c * 4 + r] = s;
+        }
+      }
+      return o;
+    },
+    /* 繞著通過 p、方向 d 的直線轉 th */
+    rot(p, d, th) {
+      const [x, y, z] = d;
+      const c = Math.cos(th), s = Math.sin(th), t = 1 - c;
+      const m = [
+        t * x * x + c, t * x * y + s * z, t * x * z - s * y, 0,
+        t * x * y - s * z, t * y * y + c, t * y * z + s * x, 0,
+        t * x * z + s * y, t * y * z - s * x, t * z * z + c, 0,
+        0, 0, 0, 1,
+      ];
+      m[12] = p[0] - (m[0] * p[0] + m[4] * p[1] + m[8] * p[2]);
+      m[13] = p[1] - (m[1] * p[0] + m[5] * p[1] + m[9] * p[2]);
+      m[14] = p[2] - (m[2] * p[0] + m[6] * p[1] + m[10] * p[2]);
+      return m;
+    },
+  };
+
+  /* 折線：p 在線上，to 決定方向，q 是會被翻起來的那一片上的一點；方向自動調成「往觀看的人翻」 */
+  function creaseAxis(p, to, q) {
+    let dx = to[0] - p[0], dy = to[1] - p[1];
+    const len = Math.hypot(dx, dy);
+    dx /= len; dy /= len;
+    if (dx * (q[1] - p[1]) - dy * (q[0] - p[0]) < 0) { dx = -dx; dy = -dy; }
+    return { p, d: [dx, dy, 0] };
   }
 
-  const at = (x, y, rest) => `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) ${rest}`;
+  function origamiModel(w, h) {
+    const e = EPS;
+    const B = [w / 2, 0], C = [0, w / 2], D = [w, w / 2];
+    const E = [0, 1.2071 * w], E2 = [w, 1.2071 * w];
+    const k = 0.2071 * w;
+    const mirror = (poly) => poly.map(([u, v]) => [w - u, v]);
+    const left = {
+      a: [B, C, [0, k]],                       /* 第一次折角裡，會再被折一次的那一塊 */
+      b: [[0, 0], B, [0, k]],                  /* 第一次折角裡，留在原處的那一塊 */
+      c: [B, C, E],                            /* 第二次折邊的那一塊 */
+      body: [B, [w / 2, h], [0, h], E],        /* 機身 */
+    };
+    const facets = [
+      { poly: left.a, folds: ["1L", "2L", "3"] },
+      { poly: left.b, folds: ["1L", "3"] },
+      { poly: left.c, folds: ["2L", "3"] },
+      { poly: left.body, folds: ["3"] },
+      { poly: mirror(left.a), folds: ["1R", "2R"] },
+      { poly: mirror(left.b), folds: ["1R"] },
+      { poly: mirror(left.c), folds: ["2R"] },
+      { poly: mirror(left.body), folds: [] },
+    ];
+    const axes = {
+      "1L": creaseAxis([w / 2, 0, e], [C[0], C[1]], [0, 0]),
+      "1R": creaseAxis([w / 2, 0, e], [D[0], D[1]], [w, 0]),
+      "2L": creaseAxis([w / 2, 0, 3 * e], [E[0], E[1]], [C[0], C[1]]),
+      "2R": creaseAxis([w / 2, 0, 3 * e], [E2[0], E2[1]], [D[0], D[1]]),
+      "3": creaseAxis([w / 2, 0, 8 * e], [w / 2, 1], [0, h / 2]),
+    };
+    return { facets, axes, roll: { p: [w / 2, 0, 0], d: axes["3"].d }, flip: mat.rot([w / 2, 0, 0], [0, 1, 0], Math.PI) };
+  }
 
-  function flyPlanes(entry) {
+  const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+  const easeIn = (x) => x * x * x;
+  const easeOut = (x) => 1 - Math.pow(1 - x, 3);
+  const clamp01 = (x) => Math.min(1, Math.max(0, x));
+  const seg = (s, a, b) => easeInOut(clamp01((s - a) / (b - a)));
+
+  /* 摺紙進度 s：0 = 平的名牌，1 = 折好、機翼張開的紙飛機 */
+  const foldParams = (s) => ({ p1: seg(s, 0, 0.24), p2: seg(s, 0.26, 0.5), p3: seg(s, 0.52, 0.78), p4: seg(s, 0.8, 1) });
+
+  function origamiTimeline(t) {
+    const T = ORIGAMI;
+    const a = T.tilt, b = a + T.fold, c = b + T.hold, d = c + T.out;
+    const s = clamp01((t - a) / T.fold);
+    const fly = easeIn(clamp01((t - c) / T.out));
+    const k = easeOut(clamp01(t / T.tilt));
+    /* 紙飛機折好、機翼張開時，整架轉到斜後方的視角，看得出 V 形的機翼和中間的折線 */
+    const pres = easeInOut(clamp01((s - 0.86) / 0.14));
+    return { s, fly, k, pres, takeoff: c, end: d };
+  }
+
+  function origamiPose(tl) {
+    const { k, pres, fly } = tl;
+    const x = fly * Math.max(window.innerWidth * 2.2, 900);
+    const y = -fly * 300;
+    const z = -fly * 1500;
+    const rx = k * -36 + pres * 16;
+    const ry = k * 16 + pres * 24 - fly * 10;
+    const rz = -2 * (1 - k) - pres * 8 - fly * 16;
+    return `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, ${z.toFixed(1)}px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) rotate(${rz.toFixed(2)}deg) rotate(90deg)`;
+  }
+
+  let origamiRun = null;
+
+  function flyOrigami(entry, hooks) {
     const tag = $("#tag");
     const badge = $("#entryBadge");
-    const dx = window.innerWidth;
-    const dy = window.innerHeight;
-    const fold = tag.animate(
-      [{ transform: "rotate(-2deg)", opacity: 1 }, { transform: "rotate(-8deg) rotateX(75deg) scale(.6)", opacity: 0 }],
-      { duration: 450, easing: "cubic-bezier(.5,0,.9,.6)", fill: "forwards" });
+    const W = tag.offsetWidth, H = tag.offsetHeight;
+    const w = H, h = W;
+    const model = origamiModel(w, h);
 
-    const out = paperPlane();
-    badge.append(out);
-    out.animate([
-      { offset: 0, opacity: 0, transform: at(0, 0, "rotate(-6deg) scale(.3)") },
-      { offset: 0.18, opacity: 1, transform: at(0, 0, "rotate(-10deg) scale(1)"), easing: "ease-out" },
-      { offset: 0.38, opacity: 1, transform: at(-44, 20, "rotate(-2deg)"), easing: "cubic-bezier(.55,0,.9,.6)" },
-      { offset: 1, opacity: 1, transform: at(dx, -dy * 0.8, "rotate(-26deg) scale(.6)") },
-    ], { duration: PLANE_OUT_MS, delay: PLANE_OUT_AT, fill: "both" }).onfinish = () => out.remove();
-
-    const back = paperPlane();
-    badge.append(back);
-    const landing = back.animate([
-      { offset: 0, opacity: 1, transform: at(-dx, -dy * 0.5, "rotate(20deg) scale(.7)"), easing: "cubic-bezier(.3,.6,.4,1)" },
-      { offset: 0.6, opacity: 1, transform: at(40, 34, "rotate(12deg) scale(1)"), easing: "ease-in-out" },
-      { offset: 0.84, opacity: 1, transform: at(-12, -8, "rotate(-8deg) scale(1)"), easing: "ease-out" },
-      { offset: 1, opacity: 1, transform: at(0, 0, "rotate(0) scale(1)") },
-    ], { duration: PLANE_BACK_MS, delay: PLANE_BACK_AT, fill: "both" });
-
-    landing.onfinish = () => {
-      back.animate([{ transform: at(0, 0, "scale(1)"), opacity: 1 }, { transform: at(0, 0, "scale(1.4) rotate(-10deg)"), opacity: 0 }],
-        { duration: 260, fill: "forwards" }).onfinish = () => back.remove();
-      fold.cancel();
-      tag.animate(
-        [{ transform: "rotate(8deg) rotateX(70deg) scale(.6)", opacity: 0 }, { transform: "rotate(-2deg)", opacity: 1 }],
-        { duration: 480, easing: "cubic-bezier(.2,1.3,.4,1)" });
+    const makeArt = () => {
+      const art = el("div", { class: "facet__art", style: `width:${h}px;height:${w}px;left:${(w - h) / 2}px;top:${(h - w) / 2}px` });
+      const copy = tag.cloneNode(true);
+      ["id", "role", "tabindex", "aria-label"].forEach((a) => copy.removeAttribute(a));
+      $$("[id]", copy).forEach((n) => n.removeAttribute("id"));
+      art.append(copy);
+      return art;
     };
-    setTimeout(() => {
-      entry.classList.add("is-received");
-      const base = getComputedStyle(tag).transform;
-      tag.animate([{ transform: base }, { transform: `${base} translateY(8px) scale(.97)` }, { transform: base }],
-        { duration: 360, easing: "cubic-bezier(.2,.9,.3,1)" });
-    }, INK_AT);
-    setTimeout(showEntryTape, TAPE_AT);
+
+    const group = el("div", { class: "origami__group", style: `width:${w}px;height:${h}px;left:${(W - w) / 2}px;top:${(H - h) / 2}px` });
+    model.facets.forEach((f) => {
+      const pts = (poly) => poly.map(([u, v]) => `${u.toFixed(2)}px ${v.toFixed(2)}px`).join(", ");
+      f.front = el("div", { class: "facet facet--front" }, makeArt(), el("i", { class: "facet__shade" }));
+      f.back = el("div", { class: "facet facet--back" }, el("i", { class: "facet__shade" }));
+      f.front.style.clipPath = `polygon(${pts(f.poly)})`;
+      f.back.style.clipPath = `polygon(${pts(f.poly.map(([u, v]) => [w - u, v]))})`;
+      group.append(f.back, f.front);
+    });
+    const stage = el("div", { class: "origami", "aria-hidden": "true" }, group);
+
+    const paint = (node, m) => {
+      node.style.transform = `matrix3d(${m.map((v) => v.toFixed(5)).join(",")})`;
+      /* 簡單打光：面向觀看的人越正越亮，斜著的面變暗，立體感才出得來 */
+      const light = m[10] * 0.8 + m[8] * 0.35 + m[9] * 0.2;
+      node.lastChild.style.opacity = Math.min(0.34, Math.max(0, (0.8 - light) * 0.45)).toFixed(3);
+    };
+
+    const render = (t) => {
+      const tl = origamiTimeline(t);
+      const { p1, p2, p3, p4 } = foldParams(tl.s);
+      const alpha = p3 * Math.PI - p4 * (Math.PI - ALPHA_END);
+      const turn = {};
+      ["1L", "1R"].forEach((id) => { turn[id] = mat.rot(model.axes[id].p, model.axes[id].d, p1 * Math.PI); });
+      ["2L", "2R"].forEach((id) => { turn[id] = mat.rot(model.axes[id].p, model.axes[id].d, p2 * Math.PI); });
+      turn["3"] = mat.rot(model.axes["3"].p, model.axes["3"].d, alpha);
+      const roll = mat.rot(model.roll.p, model.roll.d, -alpha / 2);
+      model.facets.forEach((f) => {
+        let m = mat.id();
+        f.folds.forEach((id) => { m = mat.mul(turn[id], m); });
+        m = mat.mul(roll, m);
+        paint(f.front, m);
+        paint(f.back, mat.mul(m, model.flip));
+      });
+      group.style.transform = origamiPose(tl);
+    };
+
+    render(0);
+    stage.renderAt = render; /* 檢查用：背景分頁不會跑畫面更新，需要時可以直接指定時間畫一格 */
+    badge.append(stage);
+    tag.style.visibility = "hidden";
+
+    /* 用一個什麼都不做的動畫當時鐘，開發時可以暫停、拖時間來檢查每一格 */
+    const driver = stage.animate([{ outlineOffset: "0px" }, { outlineOffset: "1px" }], { duration: origamiTimeline(0).end });
+    const timers = [setTimeout(hooks.onTakeoff, origamiTimeline(0).takeoff)];
+    const stop = () => {
+      driver.cancel();
+      stage.remove();
+      timers.forEach(clearTimeout);
+      tag.style.visibility = "";
+      if (origamiRun && origamiRun.stop === stop) origamiRun = null;
+    };
+    const frame = () => {
+      if (!stage.isConnected) return;
+      render(Number(driver.currentTime) || 0);
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+    /* 飛走就結束：名牌不會回來，留著隱藏到「再填一份」 */
+    driver.onfinish = () => {
+      stage.remove();
+      if (origamiRun && origamiRun.stop === stop) origamiRun = null;
+      hooks.onGone();
+    };
+    origamiRun = { stop };
   }
 
   /* 你的學校加入校名跑馬燈：送出那一刻在這頁出現，首頁的膠帶也會多一個你的學校（只存在這支手機） */
@@ -777,7 +911,7 @@
 
   function showEntryTape() {
     const names = state.schools.map((s) => s.name);
-    if (!state.mySchool || !names.length) return;
+    if (!state.mySchool || !names.length || !$("#entry").classList.contains("is-done")) return;
     const track = $("#entryTapeTrack");
     track.textContent = "";
     /* 每隔幾所學校就插一次你的學校，跑馬燈任何時候都看得到 */
@@ -788,17 +922,9 @@
     $("#entryTape").hidden = false;
   }
 
-  function celebrateEntry() {
-    const entry = $("#entry");
-    rememberSchool($('[data-form="newcomer"]'));
-    entry.classList.add("is-done");
-    window.scrollTo({ top: 0, behavior: calm() ? "auto" : "smooth" });
-    if (calm() || !entry.animate) {
-      entry.classList.add("is-received");
-      showEntryTape();
-      return;
-    }
-    flyPlanes(entry);
+  /* 紙飛機起飛的瞬間：灑紙片；手機版名牌空出來的位置順勢收起來 */
+  function sendOff(entry) {
+    if (!entry.classList.contains("is-done")) return;
     const colors = [...C.regions.map((r) => r.color), "#FF5500", "#FBF7EE", "#14110D"];
     for (let i = 0; i < 34; i += 1) {
       const paper = el("i", { class: "paper", "aria-hidden": "true", style: `left:${Math.random() * 100}%;background:${colors[i % colors.length]}` });
@@ -806,14 +932,37 @@
       const drift = (Math.random() - 0.5) * 160;
       paper.animate(
         [{ transform: "translateY(-40px) rotate(0)" }, { transform: `translate(${drift}px, ${entry.offsetHeight + 80}px) rotate(${(Math.random() - 0.5) * 900}deg)` }],
-        { duration: 1500 + Math.random() * 1100, delay: INK_AT + Math.random() * 350, easing: "cubic-bezier(.3,.2,.6,1)", fill: "both" }).onfinish = () => paper.remove();
+        { duration: 1500 + Math.random() * 1100, delay: Math.random() * 300, easing: "cubic-bezier(.3,.2,.6,1)", fill: "both" }).onfinish = () => paper.remove();
+    }
+    if (window.matchMedia("(max-width: 959px)").matches) {
+      const badge = $("#entryBadge");
+      const collapse = badge.animate([{ height: `${badge.offsetHeight}px` }, { height: "0px" }],
+        { duration: 650, delay: 250, easing: "cubic-bezier(.5,0,.2,1)", fill: "both" });
+      collapse.onfinish = () => { entry.classList.add("is-sent"); collapse.cancel(); };
     }
   }
 
+  function celebrateEntry() {
+    const entry = $("#entry");
+    rememberSchool($('[data-form="newcomer"]'));
+    entry.classList.add("is-done");
+    window.scrollTo({ top: 0, behavior: calm() ? "auto" : "smooth" });
+    if (calm() || !entry.animate) {
+      $("#tag").style.visibility = "hidden";
+      entry.classList.add("is-sent");
+      showEntryTape();
+      return;
+    }
+    flyOrigami(entry, { onTakeoff: () => sendOff(entry), onGone: showEntryTape });
+  }
+
   function resetEntry() {
-    $("#entry").classList.remove("is-done", "is-received");
-    $$("#entryBadge .plane").forEach((plane) => plane.remove());
-    $("#tag").getAnimations().forEach((a) => a.cancel());
+    const tag = $("#tag");
+    $("#entry").classList.remove("is-done", "is-sent");
+    if (origamiRun) origamiRun.stop();
+    tag.style.visibility = "";
+    $("#entryBadge").getAnimations().forEach((a) => a.cancel());
+    tag.getAnimations().forEach((a) => a.cancel());
     $("#entryTape").hidden = true;
     printName("");
     $("#tagMeta").textContent = "";
